@@ -1,0 +1,5 @@
+node_modules/
+life
+life-x64
+*.bun
+dist/
