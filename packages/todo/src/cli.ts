@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
-import { writeConfig, error as showError } from "@life/shared";
+import { setSecret, hasSecret, error as showError } from "@life/shared";
 import * as out from "@life/shared/output";
-import { todoist, type TodoistConfig } from "./providers/todoist.ts";
+import { todoist } from "./providers/todoist.ts";
 import type { TodoProvider, TodoTask, TodoProject } from "./types.ts";
 
 // For now, todoist is the only provider. This is the extension point.
@@ -49,10 +49,10 @@ program.name("todo").description("Task management CLI").version("0.1.0");
 
 program
   .command("setup <token>")
-  .description("Save Todoist API token")
+  .description("Save Todoist API token (stored in macOS Keychain)")
   .action(async (token: string) => {
-    writeConfig<TodoistConfig>("todo", { apiToken: token });
-    out.success("API token saved.");
+    setSecret("todo", "api-token", token);
+    out.success("API token saved to Keychain.");
     try {
       const projects = await provider.listProjects();
       out.info(`Connected — ${projects.length} projects found.`);
@@ -66,10 +66,14 @@ program
   .description("Check API connection")
   .action(async () => {
     try {
+      if (!hasSecret("todo", "api-token")) {
+        out.error("No API token in Keychain. Run: todo setup <token>");
+        process.exit(1);
+      }
       const projects = await provider.listProjects();
       out.success(`${provider.name} API: OK`);
       out.info(`Projects: ${projects.length}`);
-      out.info(`Config: ~/.config/life/todo.json`);
+      out.info("Credentials: macOS Keychain (service: life-todo)");
     } catch (e: unknown) {
       out.error((e as Error).message);
       process.exit(1);

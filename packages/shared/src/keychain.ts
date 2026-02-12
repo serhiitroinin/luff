@@ -1,0 +1,85 @@
+import { execSync } from "node:child_process";
+
+const SERVICE_PREFIX = "life";
+
+function serviceName(tool: string): string {
+  return `${SERVICE_PREFIX}-${tool}`;
+}
+
+/**
+ * Store a secret in macOS Keychain.
+ * Uses `security add-generic-password` with -U (update if exists).
+ */
+export function setSecret(tool: string, account: string, value: string): void {
+  const service = serviceName(tool);
+  try {
+    execSync(
+      `security add-generic-password -s ${esc(service)} -a ${esc(account)} -w ${esc(value)} -U`,
+      { stdio: "pipe" }
+    );
+  } catch (e: unknown) {
+    throw new Error(
+      `Failed to store secret in Keychain (service=${service}, account=${account}): ${(e as Error).message}`
+    );
+  }
+}
+
+/**
+ * Retrieve a secret from macOS Keychain.
+ * Returns null if not found.
+ */
+export function getSecret(tool: string, account: string): string | null {
+  const service = serviceName(tool);
+  try {
+    const result = execSync(
+      `security find-generic-password -s ${esc(service)} -a ${esc(account)} -w`,
+      { stdio: "pipe", encoding: "utf-8" }
+    );
+    return result.trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Retrieve a secret, throwing if not found.
+ */
+export function requireSecret(tool: string, account: string): string {
+  const value = getSecret(tool, account);
+  if (value === null) {
+    throw new Error(
+      `No secret found in Keychain for "${tool}/${account}". Run: ${tool} setup`
+    );
+  }
+  return value;
+}
+
+/**
+ * Delete a secret from macOS Keychain.
+ * Returns true if deleted, false if not found.
+ */
+export function deleteSecret(tool: string, account: string): boolean {
+  const service = serviceName(tool);
+  try {
+    execSync(
+      `security delete-generic-password -s ${esc(service)} -a ${esc(account)}`,
+      { stdio: "pipe" }
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a secret exists in Keychain without retrieving it.
+ */
+export function hasSecret(tool: string, account: string): boolean {
+  return getSecret(tool, account) !== null;
+}
+
+/** Shell-escape a value for use in security CLI args */
+function esc(value: string): string {
+  // Wrap in single quotes, escaping any single quotes within
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}

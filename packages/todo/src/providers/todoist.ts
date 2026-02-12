@@ -1,4 +1,4 @@
-import { HttpClient, requireConfig } from "@life/shared";
+import { HttpClient, requireSecret } from "@life/shared";
 import type {
   TodoProvider,
   TodoProject,
@@ -55,15 +55,11 @@ interface Paginated<T> {
   next_cursor: string | null;
 }
 
-export interface TodoistConfig {
-  apiToken: string;
-}
-
 function client(): HttpClient {
-  const cfg = requireConfig<TodoistConfig>("todo");
+  const token = requireSecret("todo", "api-token");
   return new HttpClient({
     baseUrl: BASE_URL,
-    headers: { Authorization: `Bearer ${cfg.apiToken}` },
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 

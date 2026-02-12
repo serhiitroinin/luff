@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./config": "./src/config.ts",
     "./http": "./src/http.ts",
+    "./keychain": "./src/keychain.ts",
     "./output": "./src/output.ts"
   },
   "dependencies": {
