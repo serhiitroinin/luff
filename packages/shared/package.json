@@ -1,0 +1,16 @@
+{
+  "name": "@life/shared",
+  "version": "0.1.0",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./http": "./src/http.ts",
+    "./output": "./src/output.ts"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2"
+  }
+}
