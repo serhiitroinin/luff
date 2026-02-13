@@ -56,27 +56,189 @@ function mps(speed: number | null): string {
 // ── Program ──────────────────────────────────────────────────────
 
 const program = new Command();
-program.name("garmin").description("Garmin Connect health data CLI").version("0.2.0");
+program
+  .name("garmin")
+  .description("Garmin Connect health data CLI (v0.2.1)")
+  .version("0.2.1")
+  .addHelpText("after", `
+OVERVIEW
+  Fetches health and fitness data live from the Garmin Connect API.
+  All credentials are stored in macOS Keychain (service: luff-garmin).
+  All data commands accept an optional [days] argument (default: 7).
+  Output is formatted tables to stdout; use 'json' for raw API data.
+
+COMMAND CATEGORIES
+  Auth:
+    login <email> <pw>     Full SSO login (OAuth1 → SSO → OAuth2)
+    import-tokens [dir]    One-time migration from garth/garmy tokens
+    status                 Check token validity and expiry
+    logout                 Remove all credentials from Keychain
+
+  Core Health (default 7 days):
+    overview [days]        Full dashboard — all metrics in one view
+    training-readiness|tr  Readiness score + 5 contributing factors
+    sleep                  Sleep score, stages, duration
+    heart-rate|hr          Resting HR, min, max, 7-day average
+    hrv                    Heart rate variability + baseline + status
+    stress                 Average/max stress + qualifier
+    body-battery|bb        Energy level: charge, drain, high, low, wake
+    steps                  Steps, distance, goal, floors
+    activities             Recent workouts with HR, calories, AE/AnE
+    daily                  Combined daily summary (steps + HR + stress + BB)
+
+  Advanced Metrics:
+    vo2max [days]          VO2 Max running/cycling (default: 30 days)
+    spo2 [days]            Blood oxygen levels
+    respiration|resp       Breathing rates (waking + sleeping)
+    training-status|ts     Training status, load focus, ACWR
+    race-predictions|rp    Predicted race times (5K, 10K, half, marathon)
+    weight [days]          Body weight + composition (default: 30 days)
+    fitness-age|fa         Fitness age vs chronological age
+    intensity|im           Moderate + vigorous activity minutes
+    endurance|es           Endurance score + classification
+
+  Activity Drill-Down:
+    activity <id>          Full detail: splits, HR zones, pace, power, temp
+    records|prs            Personal records (fastest times, farthest distances)
+    gear                   Equipment tracking (shoes, etc.)
+
+  Raw API:
+    json <path> [k=v ...]  Raw JSON from any Garmin Connect API endpoint
+
+METRIC QUICK REFERENCE
+  Training Readiness (0–100):
+    75–100  HIGH/PRIME  — Body ready, push hard
+    50–74   MODERATE    — Normal training OK
+    25–49   LOW         — Reduce intensity, focus recovery
+    0–24    POOR        — Rest day recommended
+    Factors (each 0–100): sleep, hrv, recovery, load, stress
+
+  Body Battery (0–100):
+    75–100  High energy  — Demanding tasks and workouts OK
+    50–74   Moderate     — Normal activity
+    25–49   Low          — Lighter activity recommended
+    0–24    Very low     — Rest needed
+
+  Stress (0–100):
+    0–25    Rest         — Low/no stress
+    26–50   Low          — Manageable stress
+    51–75   Medium       — Elevated stress
+    76–100  High         — Very high stress
+
+  Training Status:
+    PEAKING         — Ideal race form
+    PRODUCTIVE      — Fitness improving
+    MAINTAINING     — Fitness stable
+    RECOVERY        — Light load, recovering
+    UNPRODUCTIVE    — Load not improving fitness
+    DETRAINING      — Load too low, fitness declining
+    OVERREACHING    — Load too high, overtraining risk
+
+  ACWR (Acute:Chronic Workload Ratio):
+    < 0.8   Undertraining  — Detraining risk
+    0.8–1.3 Sweet spot     — Optimal load balance
+    > 1.5   Danger zone    — Overreaching risk
+
+  HRV Status:
+    BALANCED        — Normal variability
+    UNBALANCED      — Below typical range
+    LOW             — Significantly below baseline
+
+  VO2 Max (ml/kg/min) — higher is better:
+    < 30    Low
+    30–39   Fair
+    40–49   Good
+    50–59   Excellent
+    60+     Elite
+
+  Sleep Score (0–100):
+    80–100  Excellent
+    60–79   Good
+    40–59   Fair
+    0–39    Poor
+
+  Aerobic Training Effect (AE) 0.0–5.0:
+    0.0–0.9  None
+    1.0–1.9  Minor
+    2.0–2.9  Maintaining
+    3.0–3.9  Improving
+    4.0–4.9  Highly improving
+    5.0      Overreaching
+
+  Anaerobic Training Effect (AnE) 0.0–5.0:
+    Same scale as AE but for anaerobic capacity
+
+EXAMPLES
+  garmin tr                   Last 7 days training readiness
+  garmin tr 1                 Today's readiness only
+  garmin bb 14                Two weeks of body battery
+  garmin overview             Full 7-day dashboard
+  garmin activities 30        Last 30 days of workouts
+  garmin activity 18765432    Full detail + splits + HR zones for activity
+  garmin vo2max 90            VO2 Max trend over 90 days
+  garmin weight 60            Weight history over 60 days
+  garmin ts 14                Training status + ACWR over 2 weeks
+  garmin json /fitnessstats   Raw JSON from any API path
+
+COMPLEMENTARY TOOLS
+  Use alongside 'whoop' CLI for a complete health picture:
+  - WHOOP excels at: recovery score, sleep efficiency, strain, workout HR zones
+  - Garmin excels at: training readiness (richer factors), body battery, stress,
+    steps, VO2 max, training status/ACWR, weight, intensity minutes, activity detail`);
 
 // ── Auth commands ────────────────────────────────────────────────
 
 program
   .command("login <email> <password>")
-  .description("Login to Garmin Connect (SSO + OAuth)")
+  .description("Login to Garmin Connect via SSO + OAuth token exchange")
+  .addHelpText("after", `
+Details:
+  Performs full Garmin authentication: OAuth1 HMAC-SHA1 signing → SSO login
+  with email/password → OAuth2 token exchange. All tokens are stored in
+  macOS Keychain (service: luff-garmin). OAuth1 tokens last ~1 year;
+  OAuth2 access tokens ~24h (auto-refreshed on each API call).
+
+Example:
+  garmin login user@example.com MyPassword123`)
   .action(async (email: string, password: string) => {
     await login(email, password);
   });
 
 program
   .command("import-tokens [dir]")
-  .description("Import tokens from garth/garmy directory (default: ~/.garmy)")
+  .description("Import tokens from a garth/garmy directory (default: ~/.garmy)")
+  .addHelpText("after", `
+Details:
+  One-time migration helper. Reads OAuth1 and OAuth2 tokens from an
+  existing garth or garmy installation directory and saves them to
+  macOS Keychain. After import, the garth/garmy directory is no longer needed.
+
+  Looks for files: oauth1_token.json, oauth2_token.json in the directory.
+
+Example:
+  garmin import-tokens              Import from ~/.garmy (default)
+  garmin import-tokens ~/garth      Import from custom directory`)
   .action((dir?: string) => {
     importTokens(dir ?? `${process.env.HOME}/.garmy`);
   });
 
 program
   .command("status")
-  .description("Check auth status")
+  .description("Check authentication status and token expiry")
+  .addHelpText("after", `
+Details:
+  Shows current login state, access token validity (hours remaining),
+  and refresh token validity (days remaining). If the access token is
+  expired, it will auto-refresh on the next API call. If the refresh
+  token is expired, a full re-login is required.
+
+Output fields:
+  User     — Garmin display name
+  Token    — Access token status (valid with hours remaining, or expired)
+  Refresh  — Refresh token status (valid with days remaining, or expired)
+
+Example:
+  garmin status`)
   .action(async () => {
     if (!hasSecret(TOOL, "oauth1-token")) {
       out.info("Not logged in. Run: garmin login <email> <password>");
@@ -111,7 +273,15 @@ program
 
 program
   .command("logout")
-  .description("Remove all Garmin credentials from Keychain")
+  .description("Remove all Garmin credentials from macOS Keychain")
+  .addHelpText("after", `
+Details:
+  Deletes all stored tokens and credentials from macOS Keychain:
+  OAuth1 token/secret, OAuth2 access/refresh tokens, consumer key/secret,
+  display name, and profile PK. After logout, run 'garmin login' to re-auth.
+
+Example:
+  garmin logout`)
   .action(() => {
     for (const key of [
       "oauth1-token", "oauth1-secret", "access-token", "refresh-token",
@@ -123,12 +293,36 @@ program
     out.success("All Garmin credentials removed from Keychain.");
   });
 
-// ── Existing data commands ──────────────────────────────────────
+// ── Core data commands ──────────────────────────────────────────
 
 program
   .command("training-readiness [days]")
   .alias("tr")
-  .description("Training readiness score + factors")
+  .description("Training readiness score (0–100) with contributing factors")
+  .addHelpText("after", `
+Columns:
+  Date      — YYYY-MM-DD
+  Score     — 0–100 overall readiness score
+  Level     — PRIME, HIGH, MODERATE, LOW, or POOR
+  Sleep     — 0–100 last night's sleep quality contribution
+  HRV       — 0–100 HRV relative to personal baseline
+  Recovery  — 0–100 recovery time remaining factor
+  Load      — 0–100 acute:chronic workload ratio factor
+  Stress    — 0–100 recent stress history factor
+
+Interpretation:
+  75–100 HIGH/PRIME  — Body is ready. Push hard, high-intensity training OK.
+  50–74  MODERATE    — Normal training. Standard workout intensity.
+  25–49  LOW         — Reduce intensity. Focus on recovery and easy sessions.
+  0–24   POOR        — Rest day recommended. Prioritize sleep and recovery.
+
+  Each factor (Sleep, HRV, Recovery, Load, Stress) is 0–100 where higher
+  is better. A low individual factor pinpoints what's dragging readiness down.
+
+Examples:
+  garmin tr             Last 7 days (default)
+  garmin tr 1           Today only
+  garmin tr 14          Two-week trend`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.trainingReadiness(d);
@@ -148,7 +342,25 @@ program
 
 program
   .command("sleep [days]")
-  .description("Sleep score, stages, duration")
+  .description("Sleep score (0–100), stages (REM/Deep/Light/Awake), duration")
+  .addHelpText("after", `
+Columns:
+  Date    — YYYY-MM-DD
+  Score   — 0–100 overall sleep quality score
+  Total   — Total sleep time (hours)
+  REM     — REM sleep duration (hours) — memory, learning, emotional processing
+  Deep    — Deep/SWS sleep (hours) — physical recovery, immune, growth hormone
+  Light   — Light sleep (hours) — transition, muscle recovery
+  Awake   — Time awake during sleep period (hours)
+
+Interpretation:
+  Sleep Score: 80–100 excellent, 60–79 good, 40–59 fair, 0–39 poor
+  Ideal stage distribution: REM 20–25%, Deep 15–20%, Light 50–55%, Awake <10%
+  Total sleep target: 7–9 hours for most adults
+
+Examples:
+  garmin sleep            Last 7 days (default)
+  garmin sleep 30         Monthly sleep trend`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.sleep(d);
@@ -169,7 +381,23 @@ program
 program
   .command("heart-rate [days]")
   .alias("hr")
-  .description("Resting HR, min/max")
+  .description("Resting heart rate, daily min/max, 7-day average")
+  .addHelpText("after", `
+Columns:
+  Date       — YYYY-MM-DD
+  RHR        — Resting heart rate (bpm). Lower = better cardiovascular fitness.
+  Min        — Lowest HR recorded that day (bpm)
+  Max        — Highest HR recorded that day (bpm)
+  7d Avg RHR — Rolling 7-day average of resting HR (bpm)
+
+Interpretation:
+  RHR trends down over time = improving fitness.
+  Sudden RHR spike (5+ bpm above trend) may indicate illness, stress, or
+  overtraining. Compare with HRV and recovery data.
+
+Examples:
+  garmin hr             Last 7 days (default)
+  garmin hr 30          Monthly HR trend`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.heartRate(d);
@@ -188,7 +416,27 @@ program
 
 program
   .command("hrv [days]")
-  .description("Heart rate variability + baseline")
+  .description("Heart rate variability — nightly avg, weekly avg, baseline, status")
+  .addHelpText("after", `
+Columns:
+  Date        — YYYY-MM-DD
+  HRV         — Last night's average HRV (ms). Higher = better recovery.
+  Weekly      — Rolling 7-day average HRV (ms)
+  Night High  — Highest 5-minute HRV segment during last night (ms)
+  Base Low    — Personal baseline lower bound (ms)
+  Bal Low     — Balanced range lower bound (ms)
+  Bal High    — Balanced range upper bound (ms)
+  Status      — BALANCED, UNBALANCED, or LOW relative to personal baseline
+
+Interpretation:
+  HRV is highly individual — absolute values vary widely between people.
+  What matters is your trend relative to your own baseline.
+  BALANCED = within normal range. UNBALANCED = below typical. LOW = significantly below.
+  Declining HRV over 3+ days may indicate overtraining, illness, or accumulated stress.
+
+Examples:
+  garmin hrv            Last 7 days (default)
+  garmin hrv 30         Monthly HRV trend to spot patterns`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.hrv(d);
@@ -209,7 +457,26 @@ program
 
 program
   .command("stress [days]")
-  .description("Stress levels")
+  .description("Daily stress levels (0–100) with qualifier")
+  .addHelpText("after", `
+Columns:
+  Date      — YYYY-MM-DD
+  Avg       — Average stress level for the day (0–100)
+  Max       — Maximum stress reading (0–100)
+  Qualifier — Descriptive label: rest_of_day, low, medium, high, calm, balanced
+
+Interpretation:
+  0–25   Rest     — Low/no physiological stress
+  26–50  Low      — Normal, manageable stress
+  51–75  Medium   — Elevated stress, consider breaks
+  76–100 High     — Very high stress, prioritize recovery
+
+  Garmin measures stress via HRV-derived sympathetic nervous system activation.
+  High stress all day = watch for burnout. Rest stress during sleep is normal.
+
+Examples:
+  garmin stress           Last 7 days (default)
+  garmin stress 14        Two-week stress overview`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.stress(d);
@@ -228,7 +495,29 @@ program
 program
   .command("body-battery [days]")
   .alias("bb")
-  .description("Body battery charge/drain")
+  .description("Body battery energy level (0–100): charge, drain, high, low, wake value")
+  .addHelpText("after", `
+Columns:
+  Date     — YYYY-MM-DD
+  Charged  — Energy gained (mostly during sleep and rest)
+  Drained  — Energy spent (activity, stress)
+  Highest  — Peak body battery level during the day
+  Lowest   — Lowest body battery level during the day
+  At Wake  — Body battery level at wake time (most actionable value)
+
+Interpretation:
+  75–100  High energy    — Good for demanding tasks and intense workouts
+  50–74   Moderate       — Normal activity and moderate workouts
+  25–49   Low energy     — Consider lighter activity, more breaks
+  0–24    Very low       — Rest needed, prioritize sleep and recovery
+
+  Body Battery is Garmin's proprietary energy metric based on HRV, stress,
+  sleep, and activity. It charges during rest and drains during activity.
+  The "At Wake" value is most useful for morning planning.
+
+Examples:
+  garmin bb             Last 7 days (default)
+  garmin bb 14          Two-week body battery trend`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.bodyBattery(d);
@@ -246,7 +535,18 @@ program
 
 program
   .command("steps [days]")
-  .description("Steps, distance, floors")
+  .description("Daily step count, distance, goal progress, floors climbed")
+  .addHelpText("after", `
+Columns:
+  Date     — YYYY-MM-DD
+  Steps    — Total step count for the day
+  Distance — Total distance walked/run (km)
+  Goal     — Daily step goal set on the device (auto-adjusting)
+  Floors   — Floors climbed (each floor ≈ 3 meters / 10 feet of elevation)
+
+Examples:
+  garmin steps           Last 7 days (default)
+  garmin steps 30        Monthly step history`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.steps(d);
@@ -265,7 +565,34 @@ program
 
 program
   .command("activities [days]")
-  .description("Workouts: name, duration, distance, HR, calories")
+  .description("Recent workouts: name, type, duration, distance, HR, calories, training effect")
+  .addHelpText("after", `
+Columns:
+  ID       — Garmin activity ID (use with 'garmin activity <id>' for full detail)
+  Date     — YYYY-MM-DD
+  Name     — Activity name (e.g., "Morning Run", "Indoor Cycling")
+  Type     — Activity type (running, cycling, strength, etc.)
+  Duration — Total activity duration
+  Distance — Total distance (km), if applicable
+  AvgHR    — Average heart rate during activity (bpm)
+  kcal     — Calories burned
+  Elev     — Elevation gain (meters)
+  AE/AnE   — Aerobic/Anaerobic Training Effect (0.0–5.0 each)
+
+Training Effect scale:
+  0.0–0.9  No effect
+  1.0–1.9  Minor benefit
+  2.0–2.9  Maintaining current fitness
+  3.0–3.9  Improving fitness
+  4.0–4.9  Highly improving fitness
+  5.0      Overreaching
+
+Tip: Copy an activity ID from this list to drill into it:
+  garmin activity <id>   — Shows splits, HR zones, pace, power, temperature
+
+Examples:
+  garmin activities        Last 7 days (default)
+  garmin activities 30     Last 30 days of workouts`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.activities(d);
@@ -287,7 +614,26 @@ program
 
 program
   .command("daily [days]")
-  .description("Daily summary: steps, HR, stress, calories")
+  .description("Combined daily summary: steps, distance, calories, HR, stress, body battery, floors")
+  .addHelpText("after", `
+Columns:
+  Date       — YYYY-MM-DD
+  Steps      — Total step count
+  Distance   — Total distance (km)
+  Active kcal — Active calories burned (excludes BMR)
+  RHR        — Resting heart rate (bpm)
+  Min HR     — Lowest heart rate (bpm)
+  Max HR     — Highest heart rate (bpm)
+  Avg Stress — Average stress level (0–100)
+  BB Wake    — Body battery at wake time (0–100)
+  Floors     — Floors climbed
+
+  This is a combined view pulling from steps, heart rate, stress, and body
+  battery data. Use individual commands for more detailed breakdowns.
+
+Examples:
+  garmin daily           Last 7 days (default)
+  garmin daily 14        Two-week daily summary`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.daily(d);
@@ -305,11 +651,36 @@ program
     );
   });
 
-// ── Tier 1: New data commands ───────────────────────────────────
+// ── Advanced data commands ──────────────────────────────────────
 
 program
   .command("vo2max [days]")
-  .description("VO2 Max values (running + cycling)")
+  .description("VO2 Max (ml/kg/min) for running and cycling, with fitness age")
+  .addHelpText("after", `
+Columns:
+  Date        — YYYY-MM-DD
+  Running     — VO2 Max estimated from running activities (ml/kg/min)
+  Cycling     — VO2 Max estimated from cycling activities (ml/kg/min)
+  Generic     — Generic/overall VO2 Max value (ml/kg/min)
+  Fitness Age — Estimated fitness age based on VO2 Max
+
+Interpretation (ml/kg/min, general adult population):
+  < 30   Low          — Below average
+  30–39  Fair         — Average
+  40–49  Good         — Above average
+  50–59  Excellent    — Well above average
+  60+    Elite/Superior
+
+  VO2 Max is the gold standard for aerobic fitness. Higher values indicate
+  better cardiovascular fitness. Trending up = improving fitness.
+  Garmin estimates VO2 Max from GPS-tracked running/cycling with heart rate.
+
+  Default: 30 days (VO2 Max changes slowly, longer windows show trends better).
+
+Examples:
+  garmin vo2max           Last 30 days (default)
+  garmin vo2max 90        Three-month VO2 Max trend
+  garmin vo2max 365       Full year`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "30", 10);
     const data = await provider.vo2max(d);
@@ -328,7 +699,25 @@ program
 
 program
   .command("spo2 [days]")
-  .description("Blood oxygen (SpO2) levels")
+  .description("Blood oxygen saturation — sleep SpO2 average, lowest, latest")
+  .addHelpText("after", `
+Columns:
+  Date      — YYYY-MM-DD
+  Avg %     — Average SpO2 during sleep
+  Lowest %  — Lowest SpO2 reading during sleep
+  Latest %  — Most recent SpO2 reading
+
+Interpretation:
+  95–100%  Normal
+  90–94%   Below normal — may indicate altitude, respiratory issues, or sleep apnea
+  < 90%    Concerning — seek medical evaluation
+
+  SpO2 is measured during sleep via the watch's pulse oximeter.
+  Consistent low readings (especially <94%) warrant medical attention.
+
+Examples:
+  garmin spo2            Last 7 days (default)
+  garmin spo2 30         Monthly SpO2 trend`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.spo2(d);
@@ -347,7 +736,24 @@ program
 program
   .command("respiration [days]")
   .alias("resp")
-  .description("Respiration rates (breaths/min)")
+  .description("Breathing rates — waking average, sleeping average, high, low")
+  .addHelpText("after", `
+Columns:
+  Date          — YYYY-MM-DD
+  Avg Waking    — Average breaths/min while awake
+  Avg Sleeping  — Average breaths/min during sleep
+  Highest       — Peak respiration rate (breaths/min)
+  Lowest        — Lowest respiration rate (breaths/min)
+
+Interpretation:
+  Normal resting respiration: 12–20 breaths/min
+  Sleep respiration is typically lower than waking.
+  Sudden increases in sleeping respiration rate can indicate illness.
+  Tracking trends is more useful than absolute values.
+
+Examples:
+  garmin resp           Last 7 days (default)
+  garmin resp 14        Two-week respiration trend`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.respiration(d);
@@ -367,7 +773,35 @@ program
 program
   .command("training-status [days]")
   .alias("ts")
-  .description("Training status, load focus, ACWR")
+  .description("Training status (PEAKING/PRODUCTIVE/etc.), load focus, ACWR, VO2 Max")
+  .addHelpText("after", `
+Columns:
+  Date    — YYYY-MM-DD
+  Status  — Training status label (see below)
+  Focus   — Load focus: LOW_AEROBIC, HIGH_AEROBIC, ANAEROBIC, or mixed
+  Acute   — Acute training load (last 7 days)
+  Chronic — Chronic training load (last 28 days)
+  ACWR    — Acute:Chronic Workload Ratio (acute / chronic)
+  VO2     — Current VO2 Max estimate (ml/kg/min)
+
+Training Status labels:
+  PEAKING       — Ideal race form, training load balanced, fitness peaked
+  PRODUCTIVE    — Fitness improving, current training approach is effective
+  MAINTAINING   — Fitness stable, not gaining or losing
+  RECOVERY      — Light training load, body is recovering
+  UNPRODUCTIVE  — Training load not translating to fitness gains
+  DETRAINING    — Training load too low, fitness actively declining
+  OVERREACHING  — Training load too high, overtraining risk
+
+ACWR (Acute:Chronic Workload Ratio):
+  < 0.8    Undertraining   — Risk of detraining, increase load
+  0.8–1.3  Sweet spot      — Optimal training load balance
+  1.3–1.5  Caution zone    — Load increasing, monitor recovery
+  > 1.5    Danger zone     — High injury/overtraining risk
+
+Examples:
+  garmin ts             Last 7 days (default)
+  garmin ts 28          Full training cycle (4 weeks)`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.trainingStatus(d);
@@ -387,7 +821,21 @@ program
 program
   .command("race-predictions")
   .alias("rp")
-  .description("Race time predictions")
+  .description("Predicted race times for 5K, 10K, half marathon, marathon")
+  .addHelpText("after", `
+Columns:
+  Distance       — Race distance (5K, 10K, Half Marathon, Marathon)
+  Predicted Time — Estimated finish time (H:MM:SS)
+
+Details:
+  Based on VO2 Max and recent training data. Predictions improve with
+  more GPS-tracked running activities. Requires sufficient running history.
+
+  Note: This endpoint may not be available for all Garmin device models.
+  If no data is shown, race predictions are not available for your device.
+
+Example:
+  garmin rp`)
   .action(async () => {
     const data = await provider.racePredictions();
     out.heading("Race Predictions");
@@ -402,7 +850,28 @@ program
 
 program
   .command("weight [days]")
-  .description("Body weight + composition")
+  .description("Body weight (kg), BMI, body fat %, muscle mass, bone mass, body water %")
+  .addHelpText("after", `
+Columns:
+  Date        — YYYY-MM-DD
+  Weight (kg) — Body weight in kilograms
+  BMI         — Body Mass Index (weight / height^2)
+  Body Fat %  — Body fat percentage (requires smart scale)
+  Muscle (kg) — Muscle mass in kg (requires smart scale)
+  Bone (kg)   — Bone mass in kg (requires smart scale)
+  Water %     — Body water percentage (requires smart scale)
+
+Details:
+  Weight is synced from Garmin Index smart scale or manual entries.
+  Body composition metrics (fat, muscle, bone, water) require a Garmin
+  Index S2 smart scale or compatible body composition scale.
+
+  Default: 30 days (weight trends are best viewed over longer periods).
+
+Examples:
+  garmin weight           Last 30 days (default)
+  garmin weight 90        Three-month weight trend
+  garmin weight 365       Full year`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "30", 10);
     const data = await provider.weight(d);
@@ -422,7 +891,22 @@ program
 program
   .command("fitness-age")
   .alias("fa")
-  .description("Fitness age vs chronological age")
+  .description("Fitness age vs chronological age (based on VO2 Max)")
+  .addHelpText("after", `
+Output:
+  Chronological age — Your actual age in years
+  Fitness age       — Estimated age based on VO2 Max and activity level
+  Difference        — How many years younger (or older) your fitness age is
+
+Details:
+  Fitness age is Garmin's estimate of your biological fitness level compared
+  to population norms. A fitness age lower than chronological age means your
+  cardiovascular fitness is better than average for your age.
+
+  Based on VO2 Max, resting heart rate, BMI, and activity level.
+
+Example:
+  garmin fa`)
   .action(async () => {
     const data = await provider.fitnessAge();
     out.heading("Fitness Age");
@@ -438,7 +922,26 @@ program
 program
   .command("intensity [days]")
   .alias("im")
-  .description("Intensity minutes (moderate + vigorous)")
+  .description("Intensity minutes — moderate + vigorous activity minutes, weekly goal")
+  .addHelpText("after", `
+Columns:
+  Date          — YYYY-MM-DD
+  Moderate      — Minutes of moderate-intensity activity
+  Vigorous      — Minutes of vigorous-intensity activity
+  Total (2x vig) — Total intensity minutes (moderate + vigorous * 2)
+  Weekly Goal   — Target intensity minutes per week (default: 150)
+
+Details:
+  WHO recommends 150 minutes of moderate-intensity or 75 minutes of
+  vigorous-intensity activity per week. Garmin counts vigorous minutes
+  as double (2x) toward the weekly goal, matching WHO guidelines.
+
+  Intensity is determined by heart rate relative to your personal zones.
+  Moderate = elevated HR. Vigorous = high HR (typically zone 3+).
+
+Examples:
+  garmin im             Last 7 days (default)
+  garmin im 28          Full 4-week view`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     const data = await provider.intensityMinutes(d);
@@ -458,7 +961,21 @@ program
 program
   .command("endurance")
   .alias("es")
-  .description("Endurance score")
+  .description("Endurance score (0–100) and classification")
+  .addHelpText("after", `
+Output:
+  Score          — 0–100 endurance fitness level
+  Classification — Descriptive label (e.g., "Fair", "Good", "Superior")
+
+Details:
+  Endurance score estimates your ability to sustain prolonged aerobic activity.
+  Based on training history, VO2 Max, and activity patterns.
+
+  Note: This feature may not be available on all Garmin watch models.
+  If values show as "—", the feature is not supported by your device.
+
+Example:
+  garmin es`)
   .action(async () => {
     const data = await provider.enduranceScore();
     out.heading("Endurance Score");
@@ -467,11 +984,53 @@ program
     console.log(`Classification: ${data.classification ?? "\u2014"}`);
   });
 
-// ── Tier 2: Activity detail commands ────────────────────────────
+// ── Activity detail commands ────────────────────────────────────
 
 program
   .command("activity <id>")
-  .description("Detailed view of a specific activity (splits + HR zones)")
+  .description("Full detail of a specific activity — summary + splits + HR zones")
+  .addHelpText("after", `
+Details:
+  Shows comprehensive detail for a single activity including:
+  1. Summary: type, duration, distance, elevation, HR, cadence, pace,
+     calories, training effect, VO2 Max, power, temperature
+  2. Splits: per-kilometer (or per-lap) breakdown with pace, HR, cadence
+  3. HR Zones: time spent in each heart rate zone (Z1–Z5)
+
+  Get the activity ID from 'garmin activities' output (first column).
+
+Summary fields:
+  Type      — Activity type (e.g., running, cycling, strength_training)
+  Duration  — Total elapsed time (H:MM:SS)
+  Distance  — Total distance (km)
+  Elev      — Elevation gain/loss (meters)
+  HR        — Average / max heart rate (bpm)
+  Cadence   — Steps per minute (for running activities)
+  Pace      — Average / max pace (min:sec/km)
+  Calories  — Total calories burned
+  Training  — Aerobic Effect / Anaerobic Effect (0.0–5.0)
+  VO2 Max   — Estimated VO2 Max from this activity
+  Power     — Average / max power in watts (if power meter available)
+  Temp      — Average ambient temperature (°C)
+
+Splits columns:
+  #        — Split/lap number
+  Distance — Split distance (km)
+  Duration — Split time (H:MM:SS)
+  Pace     — Average pace for split (min:sec/km)
+  AvgHR    — Average heart rate for split
+  MaxHR    — Max heart rate for split
+  Cadence  — Average cadence for split (spm)
+  Elev +/- — Elevation gain/loss for split (meters)
+
+HR Zones columns:
+  Zone     — Zone number (Z1–Z5)
+  Range    — Heart rate range for this zone (bpm)
+  Duration — Time spent in this zone (H:MM:SS)
+
+Examples:
+  garmin activity 18765432       Full detail for activity 18765432
+  garmin activities 7            List recent activities to find IDs`)
   .action(async (id: string) => {
     const activityId = parseInt(id, 10);
     if (isNaN(activityId)) { showError("Invalid activity ID"); process.exit(1); }
@@ -536,7 +1095,24 @@ program
 program
   .command("records")
   .alias("prs")
-  .description("Personal records (PRs)")
+  .description("Personal records — fastest times, farthest distances, most steps")
+  .addHelpText("after", `
+Columns:
+  Type     — Record category: Fastest 1K, Fastest Mile, Fastest 5K,
+             Fastest 10K, Fastest Half, Fastest Marathon, Farthest Run,
+             Longest Ride, Longest Swim, Most Steps (Day/Week/Month)
+  Value    — Record value (time in H:MM:SS, distance in km, or count)
+  Date     — When the record was set (YYYY-MM-DD)
+  Activity — Name of the activity where the record was achieved
+
+Details:
+  Personal records are tracked automatically by Garmin across all activities.
+  Time-based records (1K–Marathon) show fastest completion times.
+  Distance records show farthest single-activity distances.
+  Step records show highest step counts for day, week, and month.
+
+Example:
+  garmin prs`)
   .action(async () => {
     const data = await provider.personalRecords();
     out.heading("Personal Records");
@@ -564,7 +1140,22 @@ program
 
 program
   .command("gear")
-  .description("Equipment tracking")
+  .description("Equipment tracking — shoes, bikes, and other gear with usage stats")
+  .addHelpText("after", `
+Columns:
+  Name         — Gear name (e.g., "Nike Pegasus 40")
+  Type         — Equipment type (shoes, bike, etc.)
+  Distance     — Total distance tracked with this gear (km)
+  Activities   — Number of activities using this gear
+  Max Distance — Retirement distance if set (km), otherwise —
+  Since        — Date the gear was added (YYYY-MM-DD)
+
+Details:
+  Tracks usage across all activities. Useful for knowing when to replace
+  running shoes (typically every 500–800 km) or schedule bike maintenance.
+
+Example:
+  garmin gear`)
   .action(async () => {
     const data = await provider.gear();
     out.heading("Gear");
@@ -585,7 +1176,20 @@ program
 
 program
   .command("overview [days]")
-  .description("Full dashboard: all health metrics")
+  .description("Full dashboard — all core + advanced metrics in a single view")
+  .addHelpText("after", `
+Details:
+  Fetches and displays all available health metrics in one combined output.
+  Includes: Training Readiness, Sleep, Heart Rate, HRV, Stress, Body Battery,
+  Steps, Activities, VO2 Max, Intensity Minutes, and Weight.
+
+  This is the most comprehensive single command — use it for weekly reviews
+  or to get a complete health snapshot. For faster, targeted data, use the
+  individual commands instead.
+
+Examples:
+  garmin overview          Full 7-day dashboard (default)
+  garmin overview 14       Two-week comprehensive view`)
   .action(async (days?: string) => {
     const d = parseInt(days ?? "7", 10);
     out.heading(`Garmin Overview — last ${d} days`);
@@ -735,7 +1339,22 @@ program
 
 program
   .command("json <path> [params...]")
-  .description("Raw JSON from any API endpoint")
+  .description("Raw JSON from any Garmin Connect API endpoint")
+  .addHelpText("after", `
+Details:
+  Fetches raw JSON from any Garmin Connect API path. The path is relative
+  to https://connectapi.garmin.com/ — do not include the domain.
+
+  Query parameters can be passed as key=value pairs after the path.
+
+  This is useful for exploring the API, debugging, or accessing endpoints
+  not yet wrapped by dedicated commands.
+
+Examples:
+  garmin json /fitnessstats
+  garmin json /usersummary-service/usersummary/daily/USERNAME
+  garmin json /weight-service/weight/dateRange startDate=2026-01-01 endDate=2026-02-01
+  garmin json /activity-service/activity/18765432`)
   .action(async (path: string, params: string[]) => {
     const paramMap: Record<string, string> = {};
     for (const p of params) {
