@@ -43,7 +43,7 @@ function printProjects(projects: TodoProject[]): void {
 // ── Program ───────────────────────────────────────────────────
 
 const program = new Command();
-program.name("todo").description("Task management CLI").version("0.1.0");
+program.name("todo").description("Task management CLI").version("0.1.1");
 
 // ── Setup (provider-specific) ─────────────────────────────────
 
@@ -163,7 +163,7 @@ tasks
   .action(async (content: string, opts: { project?: string; section?: string; priority?: number; due?: string; labels?: string; description?: string }) => {
     const t = await provider.createTask(content, {
       projectId: opts.project, sectionId: opts.section, priority: opts.priority,
-      dueString: opts.due, labels: opts.labels?.split(","), description: opts.description,
+      dueString: opts.due, labels: opts.labels?.split(",").map((l) => l.trim()), description: opts.description,
     });
     out.success(`Created: ${t.content} (ID: ${t.id})`);
   });
@@ -191,7 +191,7 @@ tasks
   .option("--labels <list>", "Comma-separated labels")
   .option("--description <text>", "Description")
   .action(async (id: string, opts: { content?: string; priority?: number; due?: string; labels?: string; description?: string }) => {
-    await provider.updateTask(id, { content: opts.content, priority: opts.priority, dueString: opts.due, labels: opts.labels?.split(","), description: opts.description });
+    await provider.updateTask(id, { content: opts.content, priority: opts.priority, dueString: opts.due, labels: opts.labels?.split(",").map((l) => l.trim()), description: opts.description });
     out.success(`Updated task ${id}`);
   });
 

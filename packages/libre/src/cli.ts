@@ -56,7 +56,7 @@ function printTir(tir: TirAnalysis): void {
 // ── Program ──────────────────────────────────────────────────────
 
 const program = new Command();
-program.name("libre").description("FreeStyle Libre 3 CGM data CLI").version("0.1.0");
+program.name("libre").description("FreeStyle Libre 3 CGM data CLI").version("0.1.1");
 
 // ── Auth commands ────────────────────────────────────────────────
 
@@ -217,11 +217,12 @@ program
 
     const values = readings.map((r) => r.mgPerDl);
     const n = values.length;
-    const mean = Math.round(values.reduce((a, b) => a + b, 0) / n);
-    const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / n;
+    const preciseMean = values.reduce((a, b) => a + b, 0) / n;
+    const variance = values.reduce((sum, v) => sum + (v - preciseMean) ** 2, 0) / n;
     const sd = Math.round(Math.sqrt(variance) * 10) / 10;
-    const cv = Math.round((sd / mean) * 1000) / 10;
-    const gmi = Math.round(((mean + 46.7) / 28.7) * 10) / 10;
+    const cv = Math.round((sd / preciseMean) * 1000) / 10;
+    const gmi = Math.round(((preciseMean + 46.7) / 28.7) * 10) / 10;
+    const mean = Math.round(preciseMean);
 
     const below = values.filter((v) => v < 70).length;
     const inRange = values.filter((v) => v >= 70 && v <= 180).length;

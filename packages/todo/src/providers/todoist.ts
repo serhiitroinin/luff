@@ -195,15 +195,18 @@ export const todoist: TodoProvider = {
 
   async updateTask(id, opts) {
     const body: Record<string, unknown> = {};
-    if (opts.content) body.content = opts.content;
-    if (opts.priority) body.priority = opts.priority;
-    if (opts.dueString) body.due_string = opts.dueString;
-    if (opts.labels) body.labels = opts.labels;
+    if (opts.content !== undefined) body.content = opts.content;
+    if (opts.priority !== undefined) body.priority = opts.priority;
+    if (opts.dueString !== undefined) body.due_string = opts.dueString;
+    if (opts.labels !== undefined) body.labels = opts.labels;
     if (opts.description !== undefined) body.description = opts.description;
     return mapTask(await client().post<RawTask>(`/tasks/${id}`, body));
   },
 
   async moveTask(id, target) {
+    if (!target.projectId && !target.sectionId && !target.parentId) {
+      throw new Error("moveTask: specify at least projectId, sectionId, or parentId");
+    }
     const body: Record<string, unknown> = {};
     if (target.projectId) body.project_id = target.projectId;
     if (target.sectionId) body.section_id = target.sectionId;
