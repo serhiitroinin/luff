@@ -1,0 +1,943 @@
+# Luff
+
+> Luff is a collection of 7 standalone CLI tools for life management — tasks, calendar, email, and health tracking. Each tool compiles to a zero-dependency binary via Bun and is distributed through Homebrew. All credentials are stored securely in macOS Keychain.
+
+## Getting Started
+
+### Prerequisites
+
+- macOS — Luff uses the macOS Keychain to store credentials securely. Linux support is planned.
+- Homebrew — for installing pre-built binaries.
+
+### Installation
+
+Install all tools:
+
+```bash
+brew tap serhiitroinin/luff
+brew install todo cal mail whoop garmin libre rescuetime
+```
+
+Install individual tools:
+
+```bash
+brew install serhiitroinin/luff/todo
+brew install serhiitroinin/luff/cal
+# ... etc
+```
+
+From GitHub Releases: Download the binary for your platform from GitHub Releases (https://github.com/serhiitroinin/luff/releases), extract, and move to a directory in your PATH:
+
+```bash
+tar xzf todo-darwin-arm64.tar.gz
+mv todo /usr/local/bin/
+```
+
+Build from source (requires Bun v1.1+):
+
+```bash
+git clone https://github.com/serhiitroinin/luff.git
+cd luff
+bun install
+bun build packages/todo/src/cli.ts --compile --outfile dist/todo
+```
+
+### First Run
+
+Each tool requires a one-time setup to store credentials. The setup pattern varies by authentication method:
+
+API Token (simplest) — Tools: todo, rescuetime:
+
+```bash
+todo setup <your-todoist-api-token>
+todo status  # verify connection
+```
+
+OAuth2 (browser flow) — Tools: cal, mail (Gmail), whoop:
+
+```bash
+# 1. Store client credentials (one-time)
+cal auth-setup <client-id> <client-secret>
+
+# 2. Authenticate each account (opens browser)
+cal auth-login myalias
+```
+
+Email + Password — Tools: garmin, libre:
+
+```bash
+garmin login you@email.com yourpassword
+garmin status  # verify connection
+```
+
+### Verify Installation
+
+```bash
+todo status
+cal accounts list
+mail overview
+whoop auth-status
+garmin status
+libre status
+rescuetime status
+```
+
+## todo
+
+Task management CLI powered by Todoist.
+
+### Install
+
+```bash
+brew install serhiitroinin/luff/todo
+```
+
+### Setup
+
+Get your API token from Todoist Settings > Integrations > Developer (https://app.todoist.com/app/settings/integrations/developer).
+
+```bash
+todo setup <your-api-token>
+todo status
+```
+
+### Quick Start
+
+```bash
+todo today
+todo overview
+todo tasks quick "Buy groceries tomorrow #Shopping p2"
+todo tasks done <task-id>
+```
+
+### Command Reference
+
+Overview commands:
+- `setup <token>` — Save Todoist API token to macOS Keychain
+- `status` — Check API connection
+- `overview` — Today + upcoming + projects dashboard
+- `today` — Today's and overdue tasks
+
+Projects (alias: p):
+- `projects list` — List all projects
+- `projects get <id>` — Get project details (JSON)
+- `projects create <name>` — Create a project
+- `projects delete <id>` — Delete a project
+
+Options for `projects create`: --parent <id>, --view <style> (list/board/calendar), --color <color>
+
+Tasks (alias: t):
+- `tasks list` — List tasks (with filters)
+- `tasks get <id>` — Get task details (JSON)
+- `tasks create <content>` — Create a task
+- `tasks quick <text>` — Quick-add with natural language
+- `tasks complete <id>` — Mark task as complete
+- `tasks reopen <id>` — Reopen a completed task
+- `tasks update <id>` — Update a task
+- `tasks move <id>` — Move task to project/section
+- `tasks delete <id>` — Delete a task
+- `tasks today` — Today's and overdue tasks
+
+Options for `tasks list`: --project <id>, --label <name>, --filter <query>
+Options for `tasks create`: --project <id>, --section <id>, --priority <n>, --due <string>, --labels <list>, --description <text>
+
+Labels (alias: l):
+- `labels list` — List all labels
+- `labels create <name>` — Create a label
+- `labels delete <id>` — Delete a label
+
+Sections (alias: s):
+- `sections list [projectId]` — List sections
+- `sections create <name>` — Create a section (requires --project)
+
+### Filter Syntax
+
+```bash
+todo tasks list --filter "today | overdue"
+todo tasks list --filter "p1"
+todo tasks list --filter "@deepwork"
+todo tasks list --filter "#Work"
+todo tasks list --filter "7 days"
+todo tasks list --filter "no date"
+```
+
+### Priority Mapping
+
+- p1 (urgent) = API value 4 = `!!!`
+- p2 (high) = API value 3 = `!!`
+- p3 (medium) = API value 2 = `!`
+- No priority = API value 1
+
+Note: The API priority is inverted from the display priority. `--priority 4` sets p1 (urgent).
+
+### Examples
+
+```bash
+todo tasks create "Review PR" --project 12345 --priority 3 --labels "deepwork,work"
+todo tasks quick "Call dentist tomorrow p2 #Personal"
+todo tasks move 67890 --section 11111
+todo tasks list --project 12345
+```
+
+## cal
+
+Google Calendar CLI with multi-account support.
+
+### Install
+
+```bash
+brew install serhiitroinin/luff/cal
+```
+
+### Setup
+
+1. Go to Google Cloud Console (https://console.cloud.google.com/apis/credentials)
+2. Create a new OAuth 2.0 Client ID (Desktop app)
+3. Enable the Google Calendar API in your project
+4. Note the Client ID and Client Secret
+
+```bash
+cal auth-setup <client-id> <client-secret>
+cal accounts add work you@company.com
+cal accounts add personal you@gmail.com
+cal auth-login work     # opens browser for OAuth2
+cal auth-login personal
+cal accounts list       # verify
+```
+
+### Quick Start
+
+```bash
+cal today all
+cal agenda --days 3
+cal quickadd work "Lunch with team tomorrow at noon"
+cal week all
+```
+
+### Command Reference
+
+Auth & Accounts:
+- `auth-setup <id> <secret>` — Save OAuth2 client credentials
+- `auth-login <account>` — OAuth2 browser flow for an account
+- `accounts list` — List accounts and auth status
+- `accounts add <alias> <email>` — Add a Google account
+- `accounts remove <alias>` — Remove an account
+
+Read Events:
+- `overview [days]` — Event counts per account (default: 7)
+- `today [account]` — Today's events
+- `week [account]` — Next 7 days
+- `list <account>` — Flexible date range query
+- `agenda` — Merged timeline across all accounts
+- `get <account> <event-id>` — Get event details
+- `calendars [account]` — List available calendars
+
+Options for `list`: --days <n>, --from <date>, --to <date>, --json
+Options for `agenda`: --days <n> (default: 3)
+
+Write Events:
+- `add <account> <summary> <start> <end>` — Create an event
+- `quickadd <account> <text>` — Natural language event creation
+- `update <account> <event-id>` — Update an event
+- `delete <account> <event-id>` — Delete an event
+
+Options for `add`: --location <text>, --description <text>, --allday, --json
+Options for `update`: --summary <text>, --start <datetime>, --end <datetime>, --location <text>, --description <text>, --allday
+
+### Time Formats
+
+```bash
+cal add work "Meeting" "2026-02-14T10:00" "2026-02-14T11:00"   # Full datetime
+cal add work "Meeting" "2026-02-14 10:00" "2026-02-14 11:00"   # Date and time separated
+cal add work "Meeting" "10:00" "11:00"                          # Time only (assumes today)
+cal add work "Meeting" "tomorrow 14:00" "tomorrow 15:00"        # With keywords
+cal add work "Holiday" "2026-02-14" "2026-02-14" --allday       # All-day event
+```
+
+### Multi-Account
+
+Use `all` to query across every authenticated account:
+
+```bash
+cal today all      # merged timeline
+cal week all       # all accounts combined
+cal list all       # all accounts, flexible range
+```
+
+The agenda command always merges all accounts by default.
+
+### Examples
+
+```bash
+cal add work "Team standup" "09:00" "09:30" --location "Room 3B"
+cal quickadd personal "Dentist appointment next Monday at 2pm"
+cal list all --days 5
+cal delete work abc123def456
+```
+
+## mail
+
+Email CLI for Gmail and Fastmail with multi-account support.
+
+### Install
+
+```bash
+brew install serhiitroinin/luff/mail
+```
+
+### Setup
+
+Gmail (OAuth2):
+1. Create OAuth2 credentials in Google Cloud Console (https://console.cloud.google.com/apis/credentials) (Desktop app)
+2. Enable the Gmail API
+
+```bash
+mail auth-setup <client-id> <client-secret> <redirect-uri>
+mail accounts add work you@gmail.com google
+mail auth-login work   # opens browser
+```
+
+Fastmail (API Token):
+1. Get an API token from Fastmail Settings > Privacy & Security > API Tokens (https://www.fastmail.com/settings/security/tokens)
+2. Grant Mail (read/write) scope
+
+```bash
+mail accounts add fm you@fastmail.com fastmail
+mail auth-login fm <your-api-token>
+```
+
+### Quick Start
+
+```bash
+mail overview
+mail list work
+mail read work <message-id>
+mail search all "invoice"
+mail archive work <id1> <id2>
+```
+
+### Command Reference
+
+Auth & Accounts:
+- `auth-setup <id> <secret> <uri>` — Save OAuth2 credentials (Gmail)
+- `auth-login <account> [token]` — OAuth2 flow (Gmail) or save API token (Fastmail)
+- `accounts list` — List accounts and auth status
+- `accounts add <alias> <email> <provider>` — Add account (google or fastmail)
+- `accounts remove <alias>` — Remove an account
+
+Read:
+- `overview` — Unread counts across all accounts
+- `list <account>` — List inbox messages
+- `read <account> <id>` — Read full message
+- `search <account> <query>` — Search messages
+
+Options for `list`: --unread, --size <n> (default: 20), --json
+Options for `search`: --size <n>, --json
+
+Actions:
+- `archive <account> <ids...>` — Archive messages (remove from inbox)
+- `flag <account> <ids...>` — Star/flag messages
+- `trash <account> <ids...>` — Move messages to trash
+
+Debug:
+- `raw <account> <method> <path>` — Direct API call (Gmail only)
+
+### Multi-Account
+
+```bash
+mail list all           # inbox from all accounts
+mail search all "tax"   # search all accounts
+```
+
+### Provider Differences
+
+- Gmail: OAuth2 auth, Gmail search syntax, raw API via `mail raw`, Gmail REST API
+- Fastmail: API token auth, JMAP text search, no raw API, JMAP protocol
+
+### Examples
+
+```bash
+mail list work --unread
+mail read work 18d3a4b5c6 --json
+mail archive work 18d3a4b5c6 18d3a4b5c7
+mail search work "has:attachment from:boss"
+```
+
+## whoop
+
+WHOOP recovery, sleep, and workout data from the WHOOP API v2.
+
+### Install
+
+```bash
+brew install serhiitroinin/luff/whoop
+```
+
+### Setup
+
+1. Create an app at WHOOP Developer Portal (https://developer-dashboard.whoop.com)
+2. Set redirect URI to http://localhost (any port)
+3. Request read scopes: read:recovery, read:sleep, read:workout, read:cycles, read:profile, read:body_measurement
+
+```bash
+whoop auth-setup <client-id> <client-secret> <redirect-uri>
+whoop auth-login    # opens browser for OAuth2
+whoop auth-status   # verify token
+```
+
+### Quick Start
+
+```bash
+whoop overview
+whoop recovery 1
+whoop sleep
+whoop workouts
+```
+
+### Command Reference
+
+Auth:
+- `auth-setup <id> <secret> <uri>` — Save OAuth2 credentials
+- `auth-login` — Interactive OAuth2 flow
+- `auth-status` — Check token validity and expiry
+- `auth-logout` — Remove all credentials
+
+Profile:
+- `profile` — User profile (name, email)
+- `body` — Body measurements (height, weight, max HR)
+
+Health Data (all accept optional [days] parameter, default: 7):
+- `recovery [days]` — Recovery scores, HRV, RHR, SpO2, skin temp
+- `sleep [days]` — Sleep stages, performance, efficiency
+- `workouts [days]` — Workout strain, HR zones, distance
+- `cycles [days]` — Physiological cycles (day strain, HR, kJ)
+- `overview [days]` — Full dashboard (all of the above)
+
+Raw API:
+- `json <path> [k=v ...]` — Raw JSON from any WHOOP API endpoint
+
+### Recovery Metrics
+
+- Recovery Score: 0-100%, green (67+), yellow (34-66), red (0-33)
+- HRV (ms): Heart rate variability (rMSSD)
+- RHR (bpm): Resting heart rate
+- SpO2 (%): Blood oxygen saturation
+- Skin Temp: Skin temperature deviation
+
+### Sleep Metrics
+
+- Performance: % of sleep need achieved
+- Efficiency: Time asleep / time in bed
+- Stages: REM, Deep (SWS), Light, Awake durations
+- Respiratory Rate: Breaths per minute during sleep
+- Sleep Needed: Total sleep need breakdown
+
+### Examples
+
+```bash
+whoop recovery 14
+whoop json /v2/activity/sleep limit=5
+whoop auth-status
+```
+
+## garmin
+
+Garmin Connect health data CLI with 20+ metrics from your Garmin wearable.
+
+### Install
+
+```bash
+brew install serhiitroinin/luff/garmin
+```
+
+### Setup
+
+Direct Login:
+
+```bash
+garmin login you@email.com yourpassword
+garmin status
+```
+
+Garmin uses SSO authentication with email and password. The credentials are only sent to Garmin's servers and are not stored — only the resulting OAuth tokens are saved to your Keychain.
+
+Import from garth/garmy: If you already have tokens from garth or garmy:
+
+```bash
+garmin import-tokens ~/.garmy
+```
+
+### Quick Start
+
+```bash
+garmin overview
+garmin tr
+garmin bb
+garmin activities
+```
+
+### Command Reference
+
+Auth:
+- `login <email> <password>` — SSO login (OAuth1 > OAuth2)
+- `import-tokens [dir]` — Import from garth/garmy (default: ~/.garmy)
+- `status` — Check auth status and token expiry
+- `logout` — Remove all credentials
+
+Core Health (all accept optional [days] parameter, default: 7):
+- `training-readiness [days]` (alias: tr) — Readiness score + 5 contributing factors
+- `sleep [days]` — Sleep score, stages, duration
+- `heart-rate [days]` (alias: hr) — Resting HR, min/max, 7-day average
+- `hrv [days]` — HRV nightly avg, baseline, status
+- `stress [days]` — Daily stress levels (0-100)
+- `body-battery [days]` (alias: bb) — Energy: charged, drained, high, low
+- `steps [days]` — Steps, distance, goal progress, floors
+- `activities [days]` — Workouts: type, duration, HR, calories
+- `daily [days]` — Combined daily summary
+
+Advanced Metrics:
+- `vo2max [days]` (default: 30 days) — VO2 Max running/cycling
+- `spo2 [days]` (default: 7 days) — Blood oxygen levels
+- `respiration [days]` (alias: resp, default: 7 days) — Breathing rate (waking + sleeping)
+- `training-status [days]` (alias: ts, default: 7 days) — Status, load focus, ACWR
+- `race-predictions` (alias: rp) — Predicted race times (5K-marathon)
+- `weight [days]` (default: 30 days) — Weight, BMI, body fat, muscle mass
+- `fitness-age` (alias: fa) — Fitness age vs chronological
+- `intensity [days]` (alias: im, default: 7 days) — Moderate + vigorous minutes
+- `endurance` (alias: es) — Endurance score
+
+Activity Detail:
+- `activity <id>` — Full detail: summary + splits + HR zones
+- `records` (alias: prs) — Personal records (fastest, farthest)
+- `gear` — Equipment tracking (shoes, bikes)
+
+Overview & Raw:
+- `overview [days]` — Full dashboard (all core + advanced)
+- `json <path> [k=v ...]` — Raw JSON from any Garmin endpoint
+
+### Training Readiness
+
+The readiness score (0-100) is composed of 5 factors:
+- Sleep: Sleep quality and duration
+- Recovery Time: Time since last intense activity
+- HRV Status: Heart rate variability trend
+- Acute Training Load: Recent training volume
+- Stress History: Recent stress levels
+
+### Body Battery
+
+- 76-100: High energy
+- 26-75: Medium energy
+- 1-25: Low energy
+
+### Examples
+
+```bash
+garmin tr 14
+garmin activity 12345678
+garmin vo2max 90
+garmin rp
+garmin json /wellness-service/wellness/dailySummaryChart/2026-02-14
+```
+
+## libre
+
+FreeStyle Libre 3 continuous glucose monitor (CGM) data via LibreLinkUp.
+
+### Install
+
+```bash
+brew install serhiitroinin/luff/libre
+```
+
+### Prerequisites
+
+1. Active FreeStyle Libre 3 sensor
+2. LibreLinkUp app installed with sharing enabled
+3. LibreLinkUp account credentials
+
+### Setup
+
+```bash
+libre setup you@email.com yourpassword
+libre login     # authenticate and discover patient
+libre status    # verify connection
+```
+
+Credentials are stored in macOS Keychain. The LibreLinkUp API requires email/password for authentication — tokens auto-refresh on expiry by re-logging in.
+
+### Quick Start
+
+```bash
+libre current
+libre overview
+libre graph
+libre tir
+```
+
+### Command Reference
+
+Auth:
+- `setup <email> <password>` — Save LibreLinkUp credentials
+- `login` — Authenticate and discover patient
+- `status` — Check connection status and token expiry
+
+Data:
+- `current` — Current glucose + trend arrow
+- `graph` — Last 12h readings (table)
+- `logbook` — Last ~2 weeks of readings (table)
+- `tir [source]` — TIR/TBR/TAR/CV/SD/GMI analysis (source: graph or logbook)
+- `overview` — Current reading + 12h TIR summary
+
+Raw API:
+- `json <path>` — Raw JSON from any LibreLinkUp endpoint
+
+### Glucose Ranges
+
+- Very Low (< 54 mg/dL): Urgent action needed
+- Low (54-69 mg/dL): Below range
+- In Range (70-180 mg/dL): Target zone
+- High (181-250 mg/dL): Above range
+- Very High (> 250 mg/dL): Urgent action needed
+
+### TIR Metrics
+
+- TIR: Time In Range (70-180 mg/dL), target >= 70%
+- TBR: Time Below Range (< 70 mg/dL), target < 5%
+- TAR: Time Above Range (> 180 mg/dL), target < 25%
+- CV: Coefficient of Variation, target < 36%
+- GMI: Glucose Management Indicator (varies)
+- SD: Standard Deviation (lower is better)
+
+### Trend Arrows
+
+- ↑↑: Rising quickly (> 3 mg/dL/min)
+- ↑: Rising (2-3 mg/dL/min)
+- →: Stable (< 1 mg/dL/min)
+- ↓: Falling (2-3 mg/dL/min)
+- ↓↓: Falling quickly (> 3 mg/dL/min)
+
+### Examples
+
+```bash
+libre current
+# Output: 112 mg/dL (6.2 mmol/L) →  [IN RANGE]
+
+libre tir logbook
+libre json /llu/connections
+```
+
+## rescuetime
+
+RescueTime productivity tracking data in your terminal.
+
+### Install
+
+```bash
+brew install serhiitroinin/luff/rescuetime
+```
+
+### Setup
+
+Get your API key from RescueTime API Key Management (https://www.rescuetime.com/anapi/manage).
+
+```bash
+rescuetime setup <your-api-key>
+rescuetime status
+```
+
+### Quick Start
+
+```bash
+rescuetime overview
+rescuetime productivity
+rescuetime activities
+rescuetime focus-sessions
+```
+
+### Command Reference
+
+Setup:
+- `setup <apiKey>` — Save RescueTime API key to Keychain
+- `status` — Check API connection
+
+Data (all accept optional [days] parameter, default: 7):
+- `productivity [days]` — Daily productivity pulse (0-100)
+- `categories [days]` — Time by category
+- `activities [days]` — Top apps/sites ranked by time
+- `focus [days]` — Productive vs distracting breakdown
+- `focus-sessions` — Recent focus session history
+- `highlights` — Daily highlight notes
+- `overview [days]` — Full dashboard
+
+Raw API:
+- `json <endpoint> [days]` — Raw JSON from API (endpoints: summary, data, focus-started, focus-ended, highlights)
+
+### Productivity Pulse
+
+- 85-100: Excellent
+- 70-84: Good
+- 50-69: Average
+- < 50: Below average
+
+### Categories
+
+- Software Development: VS Code, Terminal, GitHub
+- Communication: Slack, Email, Zoom
+- Reference & Learning: Docs, Stack Overflow
+- Business Operations: Sheets, Notion
+- Social Networking: Twitter, LinkedIn
+- Entertainment: YouTube, Reddit
+
+### Examples
+
+```bash
+rescuetime productivity 14
+rescuetime categories 1
+rescuetime json summary 7
+```
+
+## Authentication Guide
+
+Luff tools use three authentication methods depending on the service. All credentials are stored securely in the macOS Keychain under the service prefix `luff-<tool>`.
+
+### Auth Methods Overview
+
+- OAuth2 (cal, mail/Gmail, whoop): Browser-based consent flow, auto-refreshing tokens
+- API Token (todo, mail/Fastmail, rescuetime): Paste a token from the service's settings page
+- Email + Password (garmin, libre): Direct login, tokens saved to Keychain
+
+### OAuth2 Flow
+
+Step 1 — Create App Credentials:
+- Google (cal, mail): Google Cloud Console (https://console.cloud.google.com/apis/credentials) — create Desktop OAuth Client
+- WHOOP: WHOOP Developer Portal (https://developer-dashboard.whoop.com)
+
+Step 2 — Store Credentials:
+
+```bash
+cal auth-setup <client-id> <client-secret>
+mail auth-setup <client-id> <client-secret> <redirect-uri>
+whoop auth-setup <client-id> <client-secret> <redirect-uri>
+```
+
+Step 3 — Authenticate:
+
+```bash
+cal auth-login myalias
+mail auth-login myalias
+whoop auth-login
+```
+
+This opens your browser for the OAuth consent screen. After you approve, a local callback server captures the authorization code, exchanges it for tokens, and saves them to your Keychain.
+
+Token Refresh: OAuth2 tokens expire (typically after 1 hour). Luff automatically refreshes them using the stored refresh token. You should never need to re-authenticate unless the refresh token expires, you revoke access, or you run auth-logout.
+
+### API Token
+
+- Todoist: Settings > Integrations > Developer (https://app.todoist.com/app/settings/integrations/developer)
+- Fastmail: Settings > Privacy & Security > API Tokens (https://www.fastmail.com/settings/security/tokens)
+- RescueTime: API Key Management (https://www.rescuetime.com/anapi/manage)
+
+```bash
+todo setup <token>
+rescuetime setup <api-key>
+mail auth-login fm <api-token>  # Fastmail
+```
+
+### Email + Password
+
+```bash
+garmin login you@email.com yourpassword
+libre setup you@email.com yourpassword && libre login
+```
+
+Your password is never stored in plaintext files. For Garmin, credentials are sent once during login and only OAuth tokens are saved. For Libre, credentials are stored in the macOS Keychain (encrypted) because the API requires them for token renewal.
+
+### Keychain Storage
+
+All credentials are stored in the macOS Keychain:
+- Single-account tools: `luff-<tool>` (e.g., luff-todo, luff-rescuetime)
+- Multi-account tools: `luff-<tool>-<alias>` (e.g., luff-cal-work, luff-mail-personal)
+
+Inspect stored credentials:
+
+```bash
+security find-generic-password -s luff-todo -a api-token -w
+```
+
+### Troubleshooting
+
+"Not logged in" errors — Re-run the auth command for your tool.
+OAuth2 callback fails — Make sure no other process is using the callback port.
+Token expired / refresh failed — Re-authenticate with the appropriate auth command.
+
+## Multi-Account Guide
+
+The `cal` and `mail` tools support multiple accounts.
+
+### Supported Tools
+
+- cal: Yes (Google Calendar)
+- mail: Yes (Gmail, Fastmail)
+- todo, whoop, garmin, libre, rescuetime: No (single account)
+
+### Adding Accounts
+
+```bash
+cal accounts add work you@company.com
+cal accounts add personal you@gmail.com
+mail accounts add work you@company.com google
+mail accounts add fm you@fastmail.com fastmail
+```
+
+After adding, authenticate each:
+
+```bash
+cal auth-login work
+cal auth-login personal
+mail auth-login work
+mail auth-login fm <api-token>
+```
+
+### Using Accounts
+
+Target a specific account:
+
+```bash
+cal today work
+mail list personal
+```
+
+Query all accounts with `all`:
+
+```bash
+cal today all        # merged timeline from all calendars
+mail list all        # inbox from every account
+mail search all "q"  # search across all accounts
+```
+
+The `cal agenda` command always queries all accounts and merges events into a single sorted timeline.
+
+### Managing Accounts
+
+```bash
+cal accounts list
+mail accounts list
+cal accounts remove old-work
+mail accounts remove old-gmail
+```
+
+### How It Works
+
+- Account configs: ~/.config/luff/cal-accounts.json and ~/.config/luff/mail-accounts.json
+- OAuth tokens: per-account in Keychain (luff-cal-work, luff-cal-personal, etc.)
+- Client credentials: shared across all accounts of the same tool (luff-cal, luff-mail)
+- Each account authenticates independently
+
+## Architecture
+
+Luff is a Bun monorepo containing 7 CLI tools and a shared utility package.
+
+### Monorepo Structure
+
+```
+luff/
+├── packages/
+│   ├── shared/       # @luff/shared — utilities used by all tools
+│   ├── todo/         # Todoist task management
+│   ├── cal/          # Google Calendar
+│   ├── mail/         # Gmail + Fastmail
+│   ├── whoop/        # WHOOP health data
+│   ├── garmin/       # Garmin Connect
+│   ├── libre/        # FreeStyle Libre 3
+│   └── rescuetime/   # RescueTime productivity
+├── docs/             # Documentation (VitePress)
+├── dist/             # Compiled binaries (local builds)
+├── package.json      # Workspace root
+└── .github/
+    └── workflows/
+        ├── release.yml   # Build + release pipeline
+        └── docs.yml      # Documentation deployment
+```
+
+Each package follows:
+
+```
+packages/<tool>/
+├── package.json
+└── src/
+    ├── cli.ts              # Commander.js entry point
+    ├── types.ts             # TypeScript interfaces
+    └── providers/
+        └── <provider>.ts    # API implementation
+```
+
+### Provider Pattern
+
+Every tool separates the CLI layer from the API implementation using a provider interface:
+
+```
+CLI (cli.ts)  →  Provider Interface (types.ts)  →  Implementation (providers/*.ts)
+```
+
+The CLI only knows about the interface, not the API details. You can add a new backend by implementing the same interface. Tools with multi-account support (cal, mail) route to the correct provider based on the account's configuration.
+
+### Shared Package
+
+@luff/shared provides utilities used across all tools:
+
+- keychain: macOS Keychain read/write via security CLI (using execFileSync — no shell)
+- oauth2: OAuth2 flow helpers — authorize URL, code exchange, token refresh, token storage
+- http: HTTP client with JSON parsing, error handling, query params
+- config: JSON config files in ~/.config/luff/ with secure permissions (0o600)
+- accounts: Multi-account registry management
+- output: Terminal formatting — headings, tables, JSON, colors
+
+### Build System
+
+Each tool compiles to a standalone binary using `bun build --compile`:
+
+```bash
+bun build packages/todo/src/cli.ts --compile --outfile dist/todo
+```
+
+The resulting binary is ~60MB (includes the Bun runtime), has zero runtime dependencies, and runs on the target platform without any setup.
+
+### Release Pipeline
+
+Releases are triggered by pushing a git tag matching `<tool>-v<version>`:
+
+```bash
+git tag todo-v0.1.1
+git push origin todo-v0.1.1
+```
+
+The CI pipeline builds the binary on 4 platforms (macOS ARM64, macOS x64, Linux x64, Linux ARM64), creates a GitHub Release with all 4 tarballs + SHA256 checksums, and updates the Homebrew formula in serhiitroinin/homebrew-luff.
+
+### Credential Security
+
+- Secret storage: macOS Keychain (encrypted at rest)
+- Shell injection prevention: execFileSync — no shell invocation, arguments passed directly
+- Config files: Created with 0o600 permissions (owner read/write only)
+- Token refresh: Automatic, preserves refresh tokens across exchanges
+- Error messages: API responses truncated to prevent credential leakage
+- Region redirects: Validated against strict patterns before following
+
+### Adding a New Tool
+
+1. Create packages/<tool>/ with package.json, src/cli.ts, src/types.ts, src/providers/<name>.ts
+2. Define a provider interface in types.ts
+3. Implement the provider against the API
+4. Wire up Commander.js commands in cli.ts
+5. Add to the root package.json workspaces
+6. Test: bun run packages/<tool>/src/cli.ts <command>
+7. Build: bun build packages/<tool>/src/cli.ts --compile --outfile dist/<tool>
+8. Tag and push: git tag <tool>-v0.1.0 && git push origin <tool>-v0.1.0
+
+### Adding a New Provider
+
+1. Create packages/todo/src/providers/linear.ts
+2. Implement the same TodoProvider interface
+3. Add provider selection logic in cli.ts
+4. The CLI layer requires zero changes beyond routing

@@ -1,0 +1,24 @@
+# Luff
+
+> Luff is a collection of 7 standalone CLI tools for life management — tasks, calendar, email, and health tracking. Each tool compiles to a zero-dependency binary via Bun and is distributed through Homebrew. All credentials are stored securely in macOS Keychain.
+
+## Docs
+
+- [Getting Started](https://serhiitroinin.github.io/luff/getting-started): Install via Homebrew, set up credentials, verify connection
+- [Authentication Guide](https://serhiitroinin.github.io/luff/guide/authentication): OAuth2, API token, and email/password auth flows
+- [Multi-Account Guide](https://serhiitroinin.github.io/luff/guide/multi-account): Managing multiple accounts in cal and mail
+- [Architecture](https://serhiitroinin.github.io/luff/reference/architecture): Monorepo structure, provider pattern, build system, release pipeline
+
+## Tools
+
+- [todo](https://serhiitroinin.github.io/luff/tools/todo): Task management CLI powered by Todoist — projects, labels, filters, natural language quick-add
+- [cal](https://serhiitroinin.github.io/luff/tools/cal): Google Calendar CLI with multi-account support — agenda, events, quick-add, flexible time parsing
+- [mail](https://serhiitroinin.github.io/luff/tools/mail): Email CLI for Gmail and Fastmail — multi-account inbox, search, archive, flag
+- [whoop](https://serhiitroinin.github.io/luff/tools/whoop): WHOOP health data — recovery scores, sleep stages, workout strain, HRV
+- [garmin](https://serhiitroinin.github.io/luff/tools/garmin): Garmin Connect CLI with 20+ metrics — training readiness, body battery, stress, VO2 max
+- [libre](https://serhiitroinin.github.io/luff/tools/libre): FreeStyle Libre 3 CGM data — real-time glucose, trend arrows, TIR analysis
+- [rescuetime](https://serhiitroinin.github.io/luff/tools/rescuetime): RescueTime productivity tracking — productivity pulse, categories, focus sessions
+
+## Optional
+
+- [Full documentation](https://serhiitroinin.github.io/luff/llms-full.txt): Complete documentation with all command references inlined
