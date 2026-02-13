@@ -1,0 +1,19 @@
+{
+  "name": "garmin",
+  "version": "0.1.0",
+  "description": "Garmin Connect health data CLI",
+  "module": "src/cli.ts",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "garmin": "src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun build src/cli.ts --compile --outfile ../../dist/garmin"
+  },
+  "dependencies": {
+    "@luff/shared": "workspace:*",
+    "commander": "^14.0.3"
+  }
+}

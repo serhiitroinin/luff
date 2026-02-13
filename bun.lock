@@ -11,6 +11,17 @@
         "typescript": "^5",
       },
     },
+    "packages/garmin": {
+      "name": "garmin",
+      "version": "0.1.0",
+      "bin": {
+        "garmin": "src/cli.ts",
+      },
+      "dependencies": {
+        "@luff/shared": "workspace:*",
+        "commander": "^14.0.3",
+      },
+    },
     "packages/libre": {
       "name": "libre",
       "version": "0.1.0",
@@ -75,6 +86,8 @@
     "chalk": ["chalk@5.6.2", "", {}, "sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA=="],
 
     "commander": ["commander@14.0.3", "", {}, "sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw=="],
+
+    "garmin": ["garmin@workspace:packages/garmin"],
 
     "libre": ["libre@workspace:packages/libre"],
 
