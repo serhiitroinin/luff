@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 
-const SERVICE_PREFIX = "life";
+const SERVICE_PREFIX = "luff";
 
 function serviceName(tool: string): string {
   return `${SERVICE_PREFIX}-${tool}`;

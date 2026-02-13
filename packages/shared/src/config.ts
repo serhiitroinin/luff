@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "n
 import { join } from "node:path";
 import { homedir } from "node:os";
 
-const CONFIG_DIR = join(homedir(), ".config", "life");
+const CONFIG_DIR = join(homedir(), ".config", "luff");
 
 export function getConfigDir(): string {
   if (!existsSync(CONFIG_DIR)) {
@@ -37,7 +37,7 @@ export function requireConfig<T>(module: string): T {
   const config = readConfig<T>(module);
   if (!config) {
     throw new Error(
-      `No config for "${module}". Run: life ${module} setup`
+      `No config for "${module}". Run: ${module} setup`
     );
   }
   return config;
