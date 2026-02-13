@@ -6,6 +6,7 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./accounts": "./src/accounts.ts",
     "./config": "./src/config.ts",
     "./http": "./src/http.ts",
     "./keychain": "./src/keychain.ts",
