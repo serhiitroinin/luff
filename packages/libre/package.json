@@ -1,0 +1,19 @@
+{
+  "name": "libre",
+  "version": "0.1.0",
+  "description": "FreeStyle Libre 3 CGM data CLI via LibreLinkUp",
+  "module": "src/cli.ts",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "libre": "src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun build src/cli.ts --compile --outfile ../../dist/libre"
+  },
+  "dependencies": {
+    "@luff/shared": "workspace:*",
+    "commander": "^14.0.3"
+  }
+}
