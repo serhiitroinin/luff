@@ -9,6 +9,7 @@
     "./config": "./src/config.ts",
     "./http": "./src/http.ts",
     "./keychain": "./src/keychain.ts",
+    "./oauth2": "./src/oauth2.ts",
     "./output": "./src/output.ts"
   },
   "dependencies": {
