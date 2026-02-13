@@ -1,0 +1,19 @@
+{
+  "name": "whoop",
+  "version": "0.1.0",
+  "description": "WHOOP health data CLI",
+  "module": "src/cli.ts",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "whoop": "src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun build src/cli.ts --compile --outfile ../../dist/whoop"
+  },
+  "dependencies": {
+    "@luff/shared": "workspace:*",
+    "commander": "^14.0.3"
+  }
+}
