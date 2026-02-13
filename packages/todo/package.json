@@ -1,6 +1,7 @@
 {
   "name": "todo",
   "version": "0.1.0",
+  "description": "Task management CLI with provider support",
   "module": "src/cli.ts",
   "type": "module",
   "private": true,

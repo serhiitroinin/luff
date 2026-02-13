@@ -1,0 +1,202 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*-v*" # todo-v0.1.0, whoop-v0.2.0, etc.
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: bun-darwin-arm64
+            os: macos-latest
+            suffix: darwin-arm64
+          - target: bun-darwin-x64
+            os: macos-latest
+            suffix: darwin-x64
+          - target: bun-linux-x64
+            os: ubuntu-latest
+            suffix: linux-x64
+          - target: bun-linux-arm64
+            os: ubuntu-latest
+            suffix: linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - name: Parse tag
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          TOOL="${TAG%-v*}"
+          VERSION="${TAG#*-v}"
+          echo "tool=$TOOL" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          bun build "packages/${{ steps.meta.outputs.tool }}/src/cli.ts" \
+            --compile \
+            --outfile "dist/${{ steps.meta.outputs.tool }}" \
+            --target="${{ matrix.target }}"
+
+      - name: Create tarball
+        run: |
+          cd dist
+          TOOL="${{ steps.meta.outputs.tool }}"
+          ARCHIVE="${TOOL}-${{ matrix.suffix }}.tar.gz"
+          tar czf "$ARCHIVE" "$TOOL"
+          shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.tool }}-${{ matrix.suffix }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse tag
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          TOOL="${TAG%-v*}"
+          VERSION="${TAG#*-v}"
+          echo "tool=$TOOL" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -lh artifacts/
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: "${{ steps.meta.outputs.tool }} v${{ steps.meta.outputs.version }}"
+          generate_release_notes: true
+          files: artifacts/*
+
+  homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse tag
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          TOOL="${TAG%-v*}"
+          VERSION="${TAG#*-v}"
+          echo "tool=$TOOL" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Compute SHA256 sums
+        id: sha
+        run: |
+          TOOL="${{ steps.meta.outputs.tool }}"
+          for file in artifacts/${TOOL}-*.tar.gz.sha256; do
+            SUFFIX=$(basename "$file" .tar.gz.sha256)
+            SUFFIX="${SUFFIX#${TOOL}-}"
+            SHA=$(awk '{print $1}' "$file")
+            echo "${SUFFIX//-/_}=$SHA" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Generate Homebrew formula
+        run: |
+          TOOL="${{ steps.meta.outputs.tool }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          TAG="${{ steps.meta.outputs.tag }}"
+          CLASS_NAME="$(echo "$TOOL" | sed 's/\b\(.\)/\u\1/g')"
+          SHA_DARWIN_ARM64="${{ steps.sha.outputs.darwin_arm64 }}"
+          SHA_DARWIN_X64="${{ steps.sha.outputs.darwin_x64 }}"
+          SHA_LINUX_X64="${{ steps.sha.outputs.linux_x64 }}"
+          SHA_LINUX_ARM64="${{ steps.sha.outputs.linux_arm64 }}"
+
+          cat > "formula.rb" <<FORMULA
+          class ${CLASS_NAME} < Formula
+            desc "$(grep -m1 'description' "packages/${TOOL}/package.json" | sed 's/.*: "//;s/".*//' || echo "${CLASS_NAME} CLI")"
+            homepage "https://github.com/serhiitroinin/luff"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/serhiitroinin/luff/releases/download/${TAG}/${TOOL}-darwin-arm64.tar.gz"
+                sha256 "${SHA_DARWIN_ARM64}"
+              else
+                url "https://github.com/serhiitroinin/luff/releases/download/${TAG}/${TOOL}-darwin-x64.tar.gz"
+                sha256 "${SHA_DARWIN_X64}"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "https://github.com/serhiitroinin/luff/releases/download/${TAG}/${TOOL}-linux-arm64.tar.gz"
+                sha256 "${SHA_LINUX_ARM64}"
+              else
+                url "https://github.com/serhiitroinin/luff/releases/download/${TAG}/${TOOL}-linux-x64.tar.gz"
+                sha256 "${SHA_LINUX_X64}"
+              end
+            end
+
+            def install
+              bin.install "${TOOL}"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/${TOOL} --version")
+            end
+          end
+          FORMULA
+
+          # Clean up leading whitespace from heredoc
+          sed -i 's/^          //' formula.rb
+
+      - name: Push formula to homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          TOOL="${{ steps.meta.outputs.tool }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/serhiitroinin/homebrew-luff.git" tap
+          mkdir -p tap/Formula
+          cp formula.rb "tap/Formula/${TOOL}.rb"
+
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "Formula/${TOOL}.rb"
+          git commit -m "${TOOL} ${VERSION}" || echo "No changes to commit"
+          git push
