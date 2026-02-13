@@ -1,5 +1,5 @@
 {
-  "name": "life-tools",
+  "name": "luff",
   "private": true,
   "workspaces": ["packages/*"],
   "scripts": {
