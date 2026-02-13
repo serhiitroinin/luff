@@ -121,10 +121,10 @@ export async function refreshAccessToken(
   const data = await res.json() as Record<string, unknown>;
   if (!data.access_token) {
     const err = (data.error_description ?? data.error ?? "unknown") as string;
-    throw new Error(`Token refresh failed: ${err}. Run: ${config.tokenUrl.includes("whoop") ? "whoop" : "the tool"} auth-login`);
+    throw new Error(`Token refresh failed: ${err}. Re-authenticate with auth-login.`);
   }
 
-  return parseTokenResponse(data);
+  return parseTokenResponse(data, refreshToken);
 }
 
 /**
@@ -153,10 +153,16 @@ export function loadTokens(tool: string): OAuth2Tokens | null {
 
 /**
  * Get a valid access token, auto-refreshing if expired.
+ *
+ * @param tool          Per-account keychain namespace for tokens (e.g. "cal-s4t")
+ * @param config        OAuth2 endpoint config
+ * @param credentialsTool  Base keychain namespace for client creds (e.g. "cal").
+ *                         Defaults to `tool` for backwards compat.
  */
 export async function getValidAccessToken(
   tool: string,
-  config: OAuth2Config
+  config: OAuth2Config,
+  credentialsTool?: string
 ): Promise<string> {
   const tokens = loadTokens(tool);
   if (!tokens) {
@@ -169,7 +175,7 @@ export async function getValidAccessToken(
   }
 
   // Token expired — refresh it
-  const creds = loadOAuth2Credentials(tool);
+  const creds = loadOAuth2Credentials(credentialsTool ?? tool);
   const refreshed = await refreshAccessToken(
     config,
     creds.clientId,
@@ -191,12 +197,19 @@ export function clearOAuth2Data(tool: string): void {
 
 // ── Internal ──────────────────────────────────────────────────
 
-function parseTokenResponse(data: Record<string, unknown>): OAuth2Tokens {
+function parseTokenResponse(
+  data: Record<string, unknown>,
+  existingRefreshToken?: string,
+): OAuth2Tokens {
   const now = Math.floor(Date.now() / 1000);
   const expiresIn = (data.expires_in as number) ?? 3600;
+  const refreshToken = (data.refresh_token as string | undefined) ?? existingRefreshToken;
+  if (!refreshToken) {
+    throw new Error("No refresh token in response and no existing token to preserve");
+  }
   return {
     accessToken: data.access_token as string,
-    refreshToken: data.refresh_token as string,
+    refreshToken,
     expiresAt: now + expiresIn - 60, // 60s safety buffer
   };
 }

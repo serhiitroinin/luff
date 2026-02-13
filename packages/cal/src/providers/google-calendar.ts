@@ -3,13 +3,14 @@ import {
   getValidAccessToken,
   type OAuth2Config,
 } from "@luff/shared";
-import type {
-  AccountConfig,
-  CalendarProvider,
-  CalendarInfo,
-  CalEvent,
-  ActionResult,
-  CreateEventInput,
+import {
+  DEFAULT_TZ,
+  type AccountConfig,
+  type CalendarProvider,
+  type CalendarInfo,
+  type CalEvent,
+  type ActionResult,
+  type CreateEventInput,
 } from "../types.ts";
 
 const BASE_URL = "https://www.googleapis.com/calendar/v3";
@@ -68,7 +69,7 @@ function toolName(account: AccountConfig): string {
 }
 
 async function client(account: AccountConfig): Promise<HttpClient> {
-  const token = await getValidAccessToken(toolName(account), CALENDAR_OAUTH2_CONFIG);
+  const token = await getValidAccessToken(toolName(account), CALENDAR_OAUTH2_CONFIG, "cal");
   return new HttpClient({
     baseUrl: BASE_URL,
     headers: { Authorization: `Bearer ${token}` },
@@ -115,18 +116,15 @@ function buildEventBody(input: CreateEventInput): Record<string, unknown> {
 
   if (input.allDay) {
     // All-day: use date fields (YYYY-MM-DD)
+    // Google API end date is exclusive, so always +1 day (user input is inclusive)
     body.start = { date: input.start.split("T")[0] };
-    // All-day end is exclusive, so add a day if same date
-    let endDate = input.end.split("T")[0]!;
-    if (endDate === input.start.split("T")[0]) {
-      const d = new Date(endDate);
-      d.setDate(d.getDate() + 1);
-      endDate = d.toISOString().split("T")[0]!;
-    }
-    body.end = { date: endDate };
+    const endDate = input.end.split("T")[0]!;
+    const d = new Date(endDate);
+    d.setDate(d.getDate() + 1);
+    body.end = { date: d.toISOString().split("T")[0]! };
   } else {
-    body.start = { dateTime: input.start, timeZone: "Europe/Amsterdam" };
-    body.end = { dateTime: input.end, timeZone: "Europe/Amsterdam" };
+    body.start = { dateTime: input.start, timeZone: DEFAULT_TZ };
+    body.end = { dateTime: input.end, timeZone: DEFAULT_TZ };
   }
 
   return body;
@@ -196,8 +194,19 @@ export const googleCalendarProvider: CalendarProvider = {
     if (updates.summary) body.summary = updates.summary;
     if (updates.location) body.location = updates.location;
     if (updates.description) body.description = updates.description;
-    if (updates.start) body.start = { dateTime: updates.start, timeZone: "Europe/Amsterdam" };
-    if (updates.end) body.end = { dateTime: updates.end, timeZone: "Europe/Amsterdam" };
+
+    if (updates.allDay) {
+      if (updates.start) body.start = { date: updates.start.split("T")[0] };
+      if (updates.end) {
+        const endDate = updates.end.split("T")[0]!;
+        const d = new Date(endDate);
+        d.setDate(d.getDate() + 1);
+        body.end = { date: d.toISOString().split("T")[0]! };
+      }
+    } else {
+      if (updates.start) body.start = { dateTime: updates.start, timeZone: DEFAULT_TZ };
+      if (updates.end) body.end = { dateTime: updates.end, timeZone: DEFAULT_TZ };
+    }
 
     const event = await http.request<GCalEvent>(`/calendars/primary/events/${encodeEventId(eventId)}`, {
       method: "PATCH",

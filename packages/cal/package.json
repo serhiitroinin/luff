@@ -1,6 +1,6 @@
 {
   "name": "cal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Google Calendar CLI",
   "module": "src/cli.ts",
   "type": "module",

@@ -127,8 +127,8 @@ async function oauthCallbackFlow(
 const program = new Command();
 program
   .name("mail")
-  .description("Email CLI for Gmail and Fastmail (v0.1.0)")
-  .version("0.1.0")
+  .description("Email CLI for Gmail and Fastmail (v0.2.1)")
+  .version("0.2.1")
   .addHelpText("after", `
 OVERVIEW
   Native email client using Gmail REST API and Fastmail JMAP.
@@ -359,24 +359,23 @@ Example:
     out.heading("Email Overview");
     out.blank();
 
+    const accounts = allAccounts();
     const results = await Promise.allSettled(
-      allAccounts().map(async (account) => {
+      accounts.map(async (account) => {
         const provider = providerFor(account);
         const count = await provider.unreadCount(account);
         return { account, count };
       })
     );
 
-    for (const result of results) {
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]!;
+      const account = accounts[i]!;
       if (result.status === "fulfilled") {
-        const { account, count } = result.value;
         console.log(
-          `  ${account.alias.padEnd(4)}  ${account.email.padEnd(38)}  ${count} unread`
+          `  ${account.alias.padEnd(4)}  ${account.email.padEnd(38)}  ${result.value.count} unread`
         );
       } else {
-        // Find which account failed by index
-        const idx = results.indexOf(result);
-        const account = allAccounts()[idx]!;
         console.log(
           `  ${account.alias.padEnd(4)}  ${account.email.padEnd(38)}  ERR`
         );

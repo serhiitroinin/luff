@@ -58,7 +58,7 @@ function toolName(account: AccountConfig): string {
 }
 
 async function client(account: AccountConfig): Promise<HttpClient> {
-  const token = await getValidAccessToken(toolName(account), GMAIL_OAUTH2_CONFIG);
+  const token = await getValidAccessToken(toolName(account), GMAIL_OAUTH2_CONFIG, "mail");
   return new HttpClient({
     baseUrl: BASE_URL,
     headers: { Authorization: `Bearer ${token}` },

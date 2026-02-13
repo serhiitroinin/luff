@@ -153,8 +153,8 @@ async function oauthCallbackFlow(
 const program = new Command();
 program
   .name("cal")
-  .description("Google Calendar CLI (v0.1.0)")
-  .version("0.1.0")
+  .description("Google Calendar CLI (v0.1.1)")
+  .version("0.1.1")
   .addHelpText("after", `
 OVERVIEW
   Native Google Calendar CLI using the Calendar API v3 (REST/JSON).
@@ -723,6 +723,7 @@ program
   .option("--end <time>", "New end time")
   .option("--location <loc>", "New location")
   .option("--description <desc>", "New description")
+  .option("--allday", "Treat start/end as all-day dates")
   .option("--json", "Output raw JSON")
   .addHelpText("after", `
 Details:
@@ -740,12 +741,14 @@ Options:
   --end <time>           New end time
   --location <loc>       New location
   --description <desc>   New description
+  --allday               Treat start/end as all-day dates
   --json                 Output updated event as JSON
 
 Examples:
   cal update s4t abc123 --summary "Renamed meeting"
   cal update ae abc123 --start "15:00" --end "16:00"
   cal update st abc123 --location "Room 301"
+  cal update s4t abc123 --start 2026-03-10 --end 2026-03-11 --allday
 `)
   .action(async (
     accountInput: string,
@@ -756,17 +759,19 @@ Examples:
       end?: string;
       location?: string;
       description?: string;
+      allday?: boolean;
       json?: boolean;
     },
   ) => {
     try {
       const account = resolve(accountInput);
-      const updates: Record<string, string | undefined> = {};
+      const updates: Record<string, string | boolean | undefined> = {};
       if (opts.summary) updates.summary = opts.summary;
       if (opts.start) updates.start = parseDateTime(opts.start);
       if (opts.end) updates.end = parseDateTime(opts.end);
       if (opts.location) updates.location = opts.location;
       if (opts.description) updates.description = opts.description;
+      if (opts.allday) updates.allDay = true;
 
       if (!Object.keys(updates).length) {
         showError("No updates specified. Use --summary, --start, --end, --location, or --description.");

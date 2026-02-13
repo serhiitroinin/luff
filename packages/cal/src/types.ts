@@ -51,7 +51,7 @@ export interface CreateEventInput {
 
 // ── Time Helpers ────────────────────────────────────────────────
 
-const DEFAULT_TZ = "Europe/Amsterdam";
+export const DEFAULT_TZ = "Europe/Amsterdam";
 
 /** Get current timezone offset string like "+01:00" */
 function tzOffset(): string {
