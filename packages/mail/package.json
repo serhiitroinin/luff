@@ -1,0 +1,19 @@
+{
+  "name": "mail",
+  "version": "0.1.0",
+  "description": "Email CLI for Gmail and Fastmail",
+  "module": "src/cli.ts",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "mail": "src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun build src/cli.ts --compile --outfile ../../dist/mail"
+  },
+  "dependencies": {
+    "@luff/shared": "workspace:*",
+    "commander": "^14.0.3"
+  }
+}

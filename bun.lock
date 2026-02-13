@@ -11,9 +11,20 @@
         "typescript": "^5",
       },
     },
+    "packages/cal": {
+      "name": "cal",
+      "version": "0.1.0",
+      "bin": {
+        "cal": "src/cli.ts",
+      },
+      "dependencies": {
+        "@luff/shared": "workspace:*",
+        "commander": "^14.0.3",
+      },
+    },
     "packages/garmin": {
       "name": "garmin",
-      "version": "0.1.0",
+      "version": "0.2.1",
       "bin": {
         "garmin": "src/cli.ts",
       },
@@ -27,6 +38,17 @@
       "version": "0.1.0",
       "bin": {
         "libre": "src/cli.ts",
+      },
+      "dependencies": {
+        "@luff/shared": "workspace:*",
+        "commander": "^14.0.3",
+      },
+    },
+    "packages/mail": {
+      "name": "mail",
+      "version": "0.1.0",
+      "bin": {
+        "mail": "src/cli.ts",
       },
       "dependencies": {
         "@luff/shared": "workspace:*",
@@ -64,7 +86,7 @@
     },
     "packages/whoop": {
       "name": "whoop",
-      "version": "0.1.0",
+      "version": "0.2.1",
       "bin": {
         "whoop": "src/cli.ts",
       },
@@ -83,6 +105,8 @@
 
     "bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
+    "cal": ["cal@workspace:packages/cal"],
+
     "chalk": ["chalk@5.6.2", "", {}, "sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA=="],
 
     "commander": ["commander@14.0.3", "", {}, "sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw=="],
@@ -90,6 +114,8 @@
     "garmin": ["garmin@workspace:packages/garmin"],
 
     "libre": ["libre@workspace:packages/libre"],
+
+    "mail": ["mail@workspace:packages/mail"],
 
     "rescuetime": ["rescuetime@workspace:packages/rescuetime"],
 
