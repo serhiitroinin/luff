@@ -127,8 +127,8 @@ async function oauthCallbackFlow(
 const program = new Command();
 program
   .name("mail")
-  .description("Email CLI for Gmail and Fastmail (v0.2.1)")
-  .version("0.2.1")
+  .description("Email CLI for Gmail and Fastmail (v0.2.2)")
+  .version("0.2.2")
   .addHelpText("after", `
 OVERVIEW
   Native email client using Gmail REST API and Fastmail JMAP.

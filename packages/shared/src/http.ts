@@ -50,7 +50,8 @@ export class HttpClient {
     }
 
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
+      const raw = await res.text().catch(() => "");
+      const text = raw.length > 200 ? raw.slice(0, 200) + "…" : raw;
       throw new Error(`HTTP ${res.status} ${method} ${path}: ${text}`);
     }
 

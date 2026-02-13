@@ -201,14 +201,26 @@ function parseTokenResponse(
   data: Record<string, unknown>,
   existingRefreshToken?: string,
 ): OAuth2Tokens {
+  if (typeof data.access_token !== "string" || !data.access_token) {
+    throw new Error("Token response missing valid access_token");
+  }
+
   const now = Math.floor(Date.now() / 1000);
-  const expiresIn = (data.expires_in as number) ?? 3600;
-  const refreshToken = (data.refresh_token as string | undefined) ?? existingRefreshToken;
+  const rawExpires = data.expires_in;
+  const expiresIn = typeof rawExpires === "number" ? rawExpires
+    : typeof rawExpires === "string" ? parseInt(rawExpires, 10) || 3600
+    : 3600;
+
+  const rawRefresh = data.refresh_token;
+  const refreshToken = (typeof rawRefresh === "string" && rawRefresh)
+    ? rawRefresh
+    : existingRefreshToken;
   if (!refreshToken) {
     throw new Error("No refresh token in response and no existing token to preserve");
   }
+
   return {
-    accessToken: data.access_token as string,
+    accessToken: data.access_token,
     refreshToken,
     expiresAt: now + expiresIn - 60, // 60s safety buffer
   };

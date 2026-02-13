@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const SERVICE_PREFIX = "luff";
 
@@ -13,10 +13,9 @@ function serviceName(tool: string): string {
 export function setSecret(tool: string, account: string, value: string): void {
   const service = serviceName(tool);
   try {
-    execSync(
-      `security add-generic-password -s ${esc(service)} -a ${esc(account)} -w ${esc(value)} -U`,
-      { stdio: "pipe" }
-    );
+    execFileSync("security", [
+      "add-generic-password", "-s", service, "-a", account, "-w", value, "-U",
+    ], { stdio: "pipe" });
   } catch (e: unknown) {
     throw new Error(
       `Failed to store secret in Keychain (service=${service}, account=${account}): ${(e as Error).message}`
@@ -31,10 +30,9 @@ export function setSecret(tool: string, account: string, value: string): void {
 export function getSecret(tool: string, account: string): string | null {
   const service = serviceName(tool);
   try {
-    const result = execSync(
-      `security find-generic-password -s ${esc(service)} -a ${esc(account)} -w`,
-      { stdio: "pipe", encoding: "utf-8" }
-    );
+    const result = execFileSync("security", [
+      "find-generic-password", "-s", service, "-a", account, "-w",
+    ], { stdio: "pipe", encoding: "utf-8" });
     return result.trim();
   } catch {
     return null;
@@ -61,10 +59,9 @@ export function requireSecret(tool: string, account: string): string {
 export function deleteSecret(tool: string, account: string): boolean {
   const service = serviceName(tool);
   try {
-    execSync(
-      `security delete-generic-password -s ${esc(service)} -a ${esc(account)}`,
-      { stdio: "pipe" }
-    );
+    execFileSync("security", [
+      "delete-generic-password", "-s", service, "-a", account,
+    ], { stdio: "pipe" });
     return true;
   } catch {
     return false;
@@ -76,10 +73,4 @@ export function deleteSecret(tool: string, account: string): boolean {
  */
 export function hasSecret(tool: string, account: string): boolean {
   return getSecret(tool, account) !== null;
-}
-
-/** Shell-escape a value for use in security CLI args */
-function esc(value: string): string {
-  // Wrap in single quotes, escaping any single quotes within
-  return `'${value.replace(/'/g, "'\\''")}'`;
 }

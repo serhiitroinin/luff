@@ -1,6 +1,6 @@
 {
   "name": "libre",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "FreeStyle Libre 3 CGM data CLI via LibreLinkUp",
   "module": "src/cli.ts",
   "type": "module",

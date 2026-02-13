@@ -56,7 +56,7 @@ function printTir(tir: TirAnalysis): void {
 // ── Program ──────────────────────────────────────────────────────
 
 const program = new Command();
-program.name("libre").description("FreeStyle Libre 3 CGM data CLI").version("0.1.1");
+program.name("libre").description("FreeStyle Libre 3 CGM data CLI").version("0.1.2");
 
 // ── Auth commands ────────────────────────────────────────────────
 

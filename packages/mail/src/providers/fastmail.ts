@@ -48,6 +48,19 @@ interface JmapResponse {
   methodResponses: [string, Record<string, unknown>, string][];
 }
 
+function jmapResult(resp: JmapResponse, index: number, tag: string): Record<string, unknown> {
+  const entry = resp.methodResponses[index];
+  if (!entry) {
+    throw new Error(`JMAP: expected response at index ${index} (tag: ${tag}), got ${resp.methodResponses.length} responses`);
+  }
+  const [method, result] = entry;
+  if (method === "error") {
+    const errType = (result as Record<string, unknown>).type ?? "unknown";
+    throw new Error(`JMAP error in ${tag}: ${errType}`);
+  }
+  return result;
+}
+
 // ── Session & mailbox cache ──────────────────────────────────────
 
 let cachedSession: { apiUrl: string; accountId: string } | null = null;
@@ -110,7 +123,7 @@ async function getMailboxId(role: string): Promise<string> {
   const resp = await jmapCall([
     ["Mailbox/get", { accountId, properties: ["id", "name", "role"] }, "mb"],
   ]);
-  const [, result] = resp.methodResponses[0]!;
+  const result = jmapResult(resp, 0, "Mailbox/get");
   const mailboxes = (result.list as JmapMailbox[]) ?? [];
 
   cachedMailboxes = new Map();
@@ -178,7 +191,7 @@ export const fastmailProvider: MailProvider = {
       ],
     ]);
 
-    const [, getResult] = resp.methodResponses[1]!;
+    const getResult = jmapResult(resp, 1, "Email/get");
     const emails = (getResult.list as JmapEmail[]) ?? [];
     return emails.map(toEnvelope);
   },
@@ -201,7 +214,7 @@ export const fastmailProvider: MailProvider = {
       ],
     ]);
 
-    const [, result] = resp.methodResponses[0]!;
+    const result = jmapResult(resp, 0, "Email/get");
     const emails = (result.list as JmapEmailFull[]) ?? [];
     if (!emails.length) throw new Error(`Message ${id} not found`);
 
@@ -241,7 +254,7 @@ export const fastmailProvider: MailProvider = {
       ],
     ]);
 
-    const [, getResult] = resp.methodResponses[1]!;
+    const getResult = jmapResult(resp, 1, "Email/get");
     const emails = (getResult.list as JmapEmail[]) ?? [];
     return emails.map(toEnvelope);
   },
@@ -263,7 +276,7 @@ export const fastmailProvider: MailProvider = {
       ["Email/set", { accountId, update }, "s"],
     ]);
 
-    const [, result] = resp.methodResponses[0]!;
+    const result = jmapResult(resp, 0, "Email/set");
     const updated = result.updated as Record<string, unknown> | null;
     const notUpdated = result.notUpdated as Record<string, { type: string }> | null;
 
@@ -286,7 +299,7 @@ export const fastmailProvider: MailProvider = {
       ["Email/set", { accountId, update }, "s"],
     ]);
 
-    const [, result] = resp.methodResponses[0]!;
+    const result = jmapResult(resp, 0, "Email/set");
     const notUpdated = result.notUpdated as Record<string, { type: string }> | null;
 
     return ids.map((id): ActionResult => {
@@ -308,7 +321,7 @@ export const fastmailProvider: MailProvider = {
       ["Email/set", { accountId, update }, "s"],
     ]);
 
-    const [, result] = resp.methodResponses[0]!;
+    const result = jmapResult(resp, 0, "Email/set");
     const notUpdated = result.notUpdated as Record<string, { type: string }> | null;
 
     return ids.map((id): ActionResult => {
@@ -336,7 +349,7 @@ export const fastmailProvider: MailProvider = {
       ["Email/set", { accountId, update }, "s"],
     ]);
 
-    const [, result] = resp.methodResponses[0]!;
+    const result = jmapResult(resp, 0, "Email/set");
     const notUpdated = result.notUpdated as Record<string, { type: string }> | null;
 
     return ids.map((id): ActionResult => {
@@ -353,7 +366,7 @@ export const fastmailProvider: MailProvider = {
     const resp = await jmapCall([
       ["Mailbox/get", { accountId, properties: ["id", "role", "unreadEmails"] }, "mb"],
     ]);
-    const [, result] = resp.methodResponses[0]!;
+    const result = jmapResult(resp, 0, "Mailbox/get");
     const mailboxes = (result.list as { id: string; role: string | null; unreadEmails: number }[]) ?? [];
     const inbox = mailboxes.find((m) => m.role === "inbox");
     return inbox?.unreadEmails ?? 0;

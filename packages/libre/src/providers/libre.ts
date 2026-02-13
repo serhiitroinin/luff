@@ -89,7 +89,11 @@ async function login(quiet = false): Promise<void> {
 
   // Handle region redirect
   if (body.data?.redirect && body.data.region) {
-    url = `https://api-${body.data.region}.libreview.io`;
+    const region = body.data.region;
+    if (!/^[a-z]{2}$/.test(region)) {
+      throw new Error(`Invalid region code from API: ${region}`);
+    }
+    url = `https://api-${region}.libreview.io`;
     setSecret(TOOL, "api-url", url);
     if (!quiet) console.log(`Redirecting to region: ${body.data.region}`);
 
