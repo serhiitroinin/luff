@@ -25,14 +25,28 @@ function msToHm(ms: number): string {
   return `${h}h${m}m`;
 }
 
+function msToMin(ms: number): string {
+  return `${Math.round(ms / 60000)}m`;
+}
+
 function round1(n: number): string {
   return (Math.round(n * 10) / 10).toString();
+}
+
+function pct(n: number | null): string {
+  if (n == null) return "\u2014";
+  return `${Math.round(n)}%`;
+}
+
+function num(n: number | null): string {
+  if (n == null) return "\u2014";
+  return String(Math.round(n));
 }
 
 // ── Program ──────────────────────────────────────────────────────
 
 const program = new Command();
-program.name("whoop").description("WHOOP health data CLI").version("0.1.0");
+program.name("whoop").description("WHOOP health data CLI").version("0.2.0");
 
 // ── Auth commands ────────────────────────────────────────────────
 
@@ -145,8 +159,9 @@ program
   .command("recovery [days]")
   .description("Recovery scores, HRV, RHR, SpO2")
   .action(async (days?: string) => {
-    const records = await provider.recovery(parseInt(days ?? "7", 10));
-    out.heading(`Recovery — last ${days ?? 7} days`);
+    const d = parseInt(days ?? "7", 10);
+    const records = await provider.recovery(d);
+    out.heading(`Recovery — last ${d} days`);
     out.blank();
 
     if (records.length === 0) {
@@ -170,10 +185,11 @@ program
 
 program
   .command("sleep [days]")
-  .description("Sleep stages, performance, efficiency")
+  .description("Sleep stages, performance, efficiency, respiratory rate")
   .action(async (days?: string) => {
-    const records = await provider.sleep(parseInt(days ?? "7", 10));
-    out.heading(`Sleep — last ${days ?? 7} days`);
+    const d = parseInt(days ?? "7", 10);
+    const records = await provider.sleep(d);
+    out.heading(`Sleep — last ${d} days`);
     out.blank();
 
     if (records.length === 0) {
@@ -183,28 +199,52 @@ program
 
     const sorted = [...records].sort((a, b) => a.start.localeCompare(b.start));
     out.table(
-      ["Date", "Perf%", "Total", "REM", "Deep", "Light", "Awake", "Nap"],
+      ["Date", "Perf%", "Eff%", "Total", "REM", "Deep", "Light", "Awake", "RespR", "Dist", "Cycles", "Nap"],
       sorted.map((r: WhoopSleep) => [
         r.start.split("T")[0],
-        r.score?.sleepPerformancePercentage != null
-          ? `${Math.round(r.score.sleepPerformancePercentage)}%`
-          : "\u2014",
+        pct(r.score?.sleepPerformancePercentage ?? null),
+        pct(r.score?.sleepEfficiencyPercentage ?? null),
         r.score ? msToHm(r.score.totalInBedMs) : "\u2014",
         r.score ? msToHm(r.score.totalRemMs) : "\u2014",
         r.score ? msToHm(r.score.totalDeepMs) : "\u2014",
         r.score ? msToHm(r.score.totalLightMs) : "\u2014",
         r.score ? msToHm(r.score.totalAwakeMs) : "\u2014",
+        r.score?.respiratoryRate != null ? round1(r.score.respiratoryRate) : "\u2014",
+        num(r.score?.disturbanceCount ?? null),
+        num(r.score?.sleepCycleCount ?? null),
         r.nap ? "nap" : "",
       ]),
     );
+
+    // Sleep needed breakdown
+    const withNeeded = sorted.filter((r) => r.score?.sleepNeeded && !r.nap);
+    if (withNeeded.length > 0) {
+      out.blank();
+      out.subheading("Sleep Need Breakdown");
+      out.table(
+        ["Date", "Needed", "Baseline", "+Debt", "+Strain", "-Nap"],
+        withNeeded.map((r) => {
+          const sn = r.score!.sleepNeeded!;
+          return [
+            r.start.split("T")[0],
+            msToHm(sn.totalMs),
+            msToHm(sn.baselineMs),
+            sn.debtMs > 0 ? `+${msToHm(sn.debtMs)}` : "\u2014",
+            sn.strainMs > 0 ? `+${msToHm(sn.strainMs)}` : "\u2014",
+            sn.napMs < 0 ? msToHm(Math.abs(sn.napMs)) : "\u2014",
+          ];
+        }),
+      );
+    }
   });
 
 program
   .command("workouts [days]")
-  .description("Workout strain, HR, distance")
+  .description("Workout strain, HR zones, distance, elevation")
   .action(async (days?: string) => {
-    const records = await provider.workouts(parseInt(days ?? "7", 10));
-    out.heading(`Workouts — last ${days ?? 7} days`);
+    const d = parseInt(days ?? "7", 10);
+    const records = await provider.workouts(d);
+    out.heading(`Workouts — last ${d} days`);
     out.blank();
 
     if (records.length === 0) {
@@ -214,7 +254,7 @@ program
 
     const sorted = [...records].sort((a, b) => a.start.localeCompare(b.start));
     out.table(
-      ["Date", "Sport", "Strain", "AvgHR", "MaxHR", "kJ", "Dist(km)"],
+      ["Date", "Sport", "Strain", "AvgHR", "MaxHR", "kJ", "Dist(km)", "Elev(m)"],
       sorted.map((r) => [
         r.start.split("T")[0],
         r.sportName,
@@ -223,16 +263,33 @@ program
         r.score ? String(r.score.maxHeartRate) : "\u2014",
         r.score ? String(Math.round(r.score.kilojoule)) : "\u2014",
         r.score?.distanceMeter != null ? round1(r.score.distanceMeter / 1000) : "\u2014",
+        r.score?.altitudeGainMeter != null ? num(r.score.altitudeGainMeter) : "\u2014",
       ]),
     );
+
+    // HR zone breakdown
+    const withZones = sorted.filter((r) => r.score && r.score.zoneMs.some((z) => z > 0));
+    if (withZones.length > 0) {
+      out.blank();
+      out.subheading("HR Zones");
+      out.table(
+        ["Date", "Sport", "Z0", "Z1", "Z2", "Z3", "Z4", "Z5"],
+        withZones.map((r) => [
+          r.start.split("T")[0],
+          r.sportName,
+          ...r.score!.zoneMs.map((z) => z > 0 ? msToMin(z) : "\u2014"),
+        ]),
+      );
+    }
   });
 
 program
   .command("cycles [days]")
   .description("Physiological cycles (strain, HR)")
   .action(async (days?: string) => {
-    const records = await provider.cycles(parseInt(days ?? "7", 10));
-    out.heading(`Cycles — last ${days ?? 7} days`);
+    const d = parseInt(days ?? "7", 10);
+    const records = await provider.cycles(d);
+    out.heading(`Cycles — last ${d} days`);
     out.blank();
 
     if (records.length === 0) {
@@ -307,17 +364,17 @@ program
     } else {
       const sortedS = [...sleeps].sort((a, b) => a.start.localeCompare(b.start));
       out.table(
-        ["Date", "Perf%", "Total", "REM", "Deep", "Light", "Awake", "Nap"],
+        ["Date", "Perf%", "Eff%", "Total", "REM", "Deep", "Light", "Awake", "RespR", "Nap"],
         sortedS.map((r) => [
           r.start.split("T")[0],
-          r.score?.sleepPerformancePercentage != null
-            ? `${Math.round(r.score.sleepPerformancePercentage)}%`
-            : "\u2014",
+          pct(r.score?.sleepPerformancePercentage ?? null),
+          pct(r.score?.sleepEfficiencyPercentage ?? null),
           r.score ? msToHm(r.score.totalInBedMs) : "\u2014",
           r.score ? msToHm(r.score.totalRemMs) : "\u2014",
           r.score ? msToHm(r.score.totalDeepMs) : "\u2014",
           r.score ? msToHm(r.score.totalLightMs) : "\u2014",
           r.score ? msToHm(r.score.totalAwakeMs) : "\u2014",
+          r.score?.respiratoryRate != null ? round1(r.score.respiratoryRate) : "\u2014",
           r.nap ? "nap" : "",
         ]),
       );
@@ -331,7 +388,7 @@ program
     } else {
       const sortedW = [...workoutsData].sort((a, b) => a.start.localeCompare(b.start));
       out.table(
-        ["Date", "Sport", "Strain", "AvgHR", "MaxHR", "kJ", "Dist(km)"],
+        ["Date", "Sport", "Strain", "AvgHR", "MaxHR", "kJ", "Dist(km)", "Elev(m)"],
         sortedW.map((r) => [
           r.start.split("T")[0],
           r.sportName,
@@ -340,6 +397,7 @@ program
           r.score ? String(r.score.maxHeartRate) : "\u2014",
           r.score ? String(Math.round(r.score.kilojoule)) : "\u2014",
           r.score?.distanceMeter != null ? round1(r.score.distanceMeter / 1000) : "\u2014",
+          r.score?.altitudeGainMeter != null ? num(r.score.altitudeGainMeter) : "\u2014",
         ]),
       );
     }

@@ -9,6 +9,7 @@ import type {
   WhoopBody,
   WhoopRecovery,
   WhoopSleep,
+  WhoopSleepNeeded,
   WhoopWorkout,
   WhoopCycle,
 } from "../types.ts";
@@ -36,6 +37,7 @@ interface RawRecovery {
   cycle_id: number;
   created_at: string;
   score_state: string;
+  user_calibrating?: boolean;
   score: {
     recovery_score: number;
     hrv_rmssd_milli: number;
@@ -43,6 +45,13 @@ interface RawRecovery {
     spo2_percentage: number | null;
     skin_temp_celsius: number | null;
   } | null;
+}
+
+interface RawSleepNeeded {
+  baseline_milli: number;
+  need_from_sleep_debt_milli: number;
+  need_from_recent_strain_milli: number;
+  need_from_recent_nap_milli: number;
 }
 
 interface RawSleep {
@@ -53,13 +62,19 @@ interface RawSleep {
   score_state: string;
   score: {
     sleep_performance_percentage: number | null;
+    sleep_efficiency_percentage: number | null;
+    sleep_consistency_percentage: number | null;
+    respiratory_rate: number | null;
     stage_summary: {
       total_in_bed_time_milli: number;
       total_rem_sleep_time_milli: number;
       total_slow_wave_sleep_time_milli: number;
       total_light_sleep_time_milli: number;
       total_awake_time_milli: number;
+      sleep_cycle_count: number;
+      disturbance_count: number;
     };
+    sleep_needed: RawSleepNeeded | null;
   } | null;
 }
 
@@ -75,6 +90,15 @@ interface RawWorkout {
     max_heart_rate: number;
     kilojoule: number;
     distance_meter: number | null;
+    altitude_gain_meter: number | null;
+    altitude_change_meter: number | null;
+    zone_zero_milli: number | null;
+    zone_one_milli: number | null;
+    zone_two_milli: number | null;
+    zone_three_milli: number | null;
+    zone_four_milli: number | null;
+    zone_five_milli: number | null;
+    percent_recorded: number | null;
   } | null;
 }
 
@@ -155,6 +179,7 @@ function mapRecovery(r: RawRecovery): WhoopRecovery {
     cycleId: r.cycle_id,
     createdAt: r.created_at,
     scoreState: r.score_state,
+    userCalibrating: r.user_calibrating ?? false,
     score: r.score
       ? {
           recoveryScore: r.score.recovery_score,
@@ -164,6 +189,17 @@ function mapRecovery(r: RawRecovery): WhoopRecovery {
           skinTempCelsius: r.score.skin_temp_celsius,
         }
       : null,
+  };
+}
+
+function mapSleepNeeded(sn: RawSleepNeeded | null): WhoopSleepNeeded | null {
+  if (!sn) return null;
+  return {
+    baselineMs: sn.baseline_milli,
+    debtMs: sn.need_from_sleep_debt_milli,
+    strainMs: sn.need_from_recent_strain_milli,
+    napMs: sn.need_from_recent_nap_milli,
+    totalMs: sn.baseline_milli + sn.need_from_sleep_debt_milli + sn.need_from_recent_strain_milli + sn.need_from_recent_nap_milli,
   };
 }
 
@@ -177,11 +213,17 @@ function mapSleep(r: RawSleep): WhoopSleep {
     score: r.score
       ? {
           sleepPerformancePercentage: r.score.sleep_performance_percentage,
+          sleepEfficiencyPercentage: r.score.sleep_efficiency_percentage,
+          sleepConsistencyPercentage: r.score.sleep_consistency_percentage,
+          respiratoryRate: r.score.respiratory_rate,
+          disturbanceCount: r.score.stage_summary.disturbance_count,
+          sleepCycleCount: r.score.stage_summary.sleep_cycle_count,
           totalInBedMs: r.score.stage_summary.total_in_bed_time_milli,
           totalRemMs: r.score.stage_summary.total_rem_sleep_time_milli,
           totalDeepMs: r.score.stage_summary.total_slow_wave_sleep_time_milli,
           totalLightMs: r.score.stage_summary.total_light_sleep_time_milli,
           totalAwakeMs: r.score.stage_summary.total_awake_time_milli,
+          sleepNeeded: mapSleepNeeded(r.score.sleep_needed),
         }
       : null,
   };
@@ -201,6 +243,17 @@ function mapWorkout(r: RawWorkout): WhoopWorkout {
           maxHeartRate: r.score.max_heart_rate,
           kilojoule: r.score.kilojoule,
           distanceMeter: r.score.distance_meter,
+          altitudeGainMeter: r.score.altitude_gain_meter,
+          altitudeChangeMeter: r.score.altitude_change_meter,
+          zoneMs: [
+            r.score.zone_zero_milli ?? 0,
+            r.score.zone_one_milli ?? 0,
+            r.score.zone_two_milli ?? 0,
+            r.score.zone_three_milli ?? 0,
+            r.score.zone_four_milli ?? 0,
+            r.score.zone_five_milli ?? 0,
+          ],
+          percentRecorded: r.score.percent_recorded,
         }
       : null,
   };

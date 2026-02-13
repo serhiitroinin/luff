@@ -17,6 +17,7 @@ export interface WhoopRecovery {
   cycleId: number;
   createdAt: string;
   scoreState: string;
+  userCalibrating: boolean;
   score: {
     recoveryScore: number;
     hrvRmssdMilli: number;
@@ -24,6 +25,14 @@ export interface WhoopRecovery {
     spo2Percentage: number | null;
     skinTempCelsius: number | null;
   } | null;
+}
+
+export interface WhoopSleepNeeded {
+  baselineMs: number;
+  debtMs: number;
+  strainMs: number;
+  napMs: number;
+  totalMs: number;
 }
 
 export interface WhoopSleep {
@@ -34,11 +43,17 @@ export interface WhoopSleep {
   scoreState: string;
   score: {
     sleepPerformancePercentage: number | null;
+    sleepEfficiencyPercentage: number | null;
+    sleepConsistencyPercentage: number | null;
+    respiratoryRate: number | null;
+    disturbanceCount: number | null;
+    sleepCycleCount: number | null;
     totalInBedMs: number;
     totalRemMs: number;
     totalDeepMs: number;
     totalLightMs: number;
     totalAwakeMs: number;
+    sleepNeeded: WhoopSleepNeeded | null;
   } | null;
 }
 
@@ -54,6 +69,10 @@ export interface WhoopWorkout {
     maxHeartRate: number;
     kilojoule: number;
     distanceMeter: number | null;
+    altitudeGainMeter: number | null;
+    altitudeChangeMeter: number | null;
+    zoneMs: [number, number, number, number, number, number]; // zones 0-5
+    percentRecorded: number | null;
   } | null;
 }
 
