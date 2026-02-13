@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { Command } from "commander";
-import { setSecret, hasSecret, error as showError } from "@life/shared";
-import * as out from "@life/shared/output";
+import { setSecret, hasSecret, error as showError } from "@luff/shared";
+import * as out from "@luff/shared/output";
 import { todoist } from "./providers/todoist.ts";
 import type { TodoProvider, TodoTask, TodoProject } from "./types.ts";
 
@@ -73,7 +73,7 @@ program
       const projects = await provider.listProjects();
       out.success(`${provider.name} API: OK`);
       out.info(`Projects: ${projects.length}`);
-      out.info("Credentials: macOS Keychain (service: life-todo)");
+      out.info("Credentials: macOS Keychain (service: luff-todo)");
     } catch (e: unknown) {
       out.error((e as Error).message);
       process.exit(1);

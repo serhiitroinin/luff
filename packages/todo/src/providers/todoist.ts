@@ -1,4 +1,4 @@
-import { HttpClient, requireSecret } from "@life/shared";
+import { HttpClient, requireSecret } from "@luff/shared";
 import type {
   TodoProvider,
   TodoProject,
